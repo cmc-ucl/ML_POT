@@ -7,19 +7,27 @@ import numpy as np
 
 
 
-FROM = int(sys.argv[1])
-TO = int(sys.argv[2])
-STEP = int(sys.argv[3])
-FROM_rank = int(sys.argv[4])
-TO_rank = int(sys.argv[5])
-Breath = sys.argv[6]
-cutoff = float(sys.argv[7])
-sparse = int(sys.argv[8])
-wd_name = f'GAP_{FROM}-{TO}_{STEP}_{FROM_rank}-{TO_rank}_{Breath}_{cutoff}_{sparse}'
+Arg = sys.argv
+print(Arg)
+EIGVEC = Arg[1]
+STEP = int(Arg[2])
+RANK_from = int(Arg[3])
+RANK_to = int(Arg[4])
+Breath = Arg[5]
+cutoff= float(Arg[6])
+sparse = int(Arg[7])
+
+EIGVEC = EIGVEC.split()
+_EIGVEC = '-'.join(EIGVEC)
+
+wd_name = f'GAP_{_EIGVEC}_{STEP}_{RANK_from}-{RANK_to}_{Breath}_{cutoff}_{sparse}'
+
+
 if wd_name  not in os.listdir('./'):
     os.mkdir(wd_name)
 
-GULP = gulp.GULP(STEP, FROM, TO, SP='set')
+# Instantiate the class
+GULP = gulp.GULP(STEP, EIGVEC, SP='set')
 
 # Re-naming the xyz files in the top_structures
 try:
@@ -40,21 +48,21 @@ print()
 os.chdir(wd_name)
 for f in files:
     rank = int(f.split('/')[-1].split('.')[0])
-    if FROM_rank <= rank <= TO_rank:
+    if RANK_from <= rank <= RANK_to:
         cation, anion_core, anion_shel, DIR_IP_RANK, no_of_atoms = GULP.Convert_xyz_Gulp(f)
         cwd = os.getcwd()
         os.mkdir(DIR_IP_RANK)
-        GULP_gout_PATH = os.path.join(cwd, DIR_IP_RANK)
+        GULP_gout_PATH = os.path.join('./', DIR_IP_RANK) #cwd, DIR_IP_RANK)
         GULP_OUT_PATH = GULP_gout_PATH.split('/')[-1] + '/' + GULP_gout_PATH.split('/')[-1]
         GULP.Write_Gulp(DIR_IP_RANK, GULP_OUT_PATH, cation, anion_core, anion_shel, 'n')
         Gulp_output_path = GULP.Run_Gulp(GULP_gout_PATH, DIR_IP_RANK)
         total_energy, eigvec_array, freq = GULP.Grep_Data(Gulp_output_path, no_of_atoms, DIR_IP_RANK, 'n')
-
-        if FROM != 0 and TO != 0:
+        
+        if '0' not in EIGVEC:
+        #if FROM != 0 and TO != 0:
             GULP.Modifying_xyz(DIR_IP_RANK, GULP_gout_PATH + f'/{DIR_IP_RANK}_eig.xyz', eigvec_array, freq, no_of_atoms, total_energy, Breath)
         else:
             pass
-
 
         if Breath == 'y':
             GULP.Breathing_xyz(DIR_IP_RANK, GULP_gout_PATH + f'/{DIR_IP_RANK}_eig.xyz', no_of_atoms, total_energy)
@@ -63,20 +71,23 @@ for f in files:
 
         sub_wd = [x for x in os.listdir(f'{GULP_gout_PATH}') if os.path.isdir(f'{GULP_gout_PATH}/{x}')]
         sub_wd = sorted(sub_wd, key=lambda x: int(x))
+        
         for i in sub_wd:     # sub_wd = dir that named with the order of eigenvale (0, 1, 2 ...) (and breathing (100))
             SECOND_LAST_PATH_FULL = os.path.join(GULP_gout_PATH, i)
             mod_list = [x for x in os.listdir(SECOND_LAST_PATH_FULL)
                             if not os.path.isdir(os.path.join(SECOND_LAST_PATH_FULL, x)) and 'movie.xyz' not in x]
             mod_list_PATH = [os.path.join(SECOND_LAST_PATH_FULL, x) for x in mod_list]
-            mod_list_PATH = sorted(mod_list_PATH, key=lambda x: x.split('/')[-1].split('_')[1].split('.')[0]) # list of mod_{lambda}.xyz
+            mod_list_PATH = sorted(mod_list_PATH, key=lambda x: int(x.split('/')[-1].split('_')[1].split('.')[0])) # list of mod_{lambda}.xyz
+            
             mod_dir_list = [x for x in os.listdir(SECOND_LAST_PATH_FULL)
                                     if os.path.isdir(os.path.join(SECOND_LAST_PATH_FULL, x))] # list of sp_mod_{labmda} dir
+            
             for j in mod_list_PATH:
                 cat, an_core, an_shel, MOD_XYZ_LABEL, no_of_atoms = GULP.Convert_xyz_Gulp(j)
                 FINAL_PATH_FULL = os.path.join(SECOND_LAST_PATH_FULL, 'sp_' + MOD_XYZ_LABEL)
                 spliter = FINAL_PATH_FULL.split('/')[-4] + '/'
                 GULP_OUT_PATH = FINAL_PATH_FULL.split(spliter)[1] + '/' + FINAL_PATH_FULL.split('/')[-1]
-
+                
                 if len(mod_dir_list) == 0:
                     os.mkdir(FINAL_PATH_FULL)
                     GULP.Write_Gulp(FINAL_PATH_FULL, GULP_OUT_PATH, cat, an_core, an_shel, 'y') # single-point calculation 
@@ -89,9 +100,9 @@ os.chdir('..')
 del files, GULP_gout_PATH, sub_wd, mod_list, mod_list_PATH, spliter, gulp_out
 
 
-#########################
-# Fitting GAP potential #
-#########################
+#######################################
+# Preparing for GAP potential trainig #
+#######################################
 cat = 'Al'
 an = 'F  '
 Al_atom_energy = 0.000 #-13.975817
@@ -161,7 +172,7 @@ with open(Valid_xyz_path, 'a') as f:
         for j in valid_20.keys():
             if j <= numi < block[j]:
                 f.write(i)
-print(Training_xyz_path)
+
 # Add single atoms
 with open(Training_xyz_path, 'a') as f:
     f.write('1\n')
@@ -173,7 +184,5 @@ Properties=species:S:1:pos:R:3:forces:R:3 energy=0.000000000000 free_energy={Al_
 Properties=species:S:1:pos:R:3:forces:R:3 energy=0.000000000000 free_energy={F_atom_energy} pbc="F F F"\n')
     f.write('F 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000\n')
 
-
-
-
-
+"""
+"""

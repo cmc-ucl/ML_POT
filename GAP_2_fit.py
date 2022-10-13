@@ -1,15 +1,20 @@
 import os, sys
 from colored import fg, bg, attr
 
-FROM = int(sys.argv[1])
-TO = int(sys.argv[2])
-STEP = int(sys.argv[3])
-FROM_rank = int(sys.argv[4])
-TO_rank = int(sys.argv[5])
-Breath = sys.argv[6]
-cutoff = float(sys.argv[7])
-sparse = int(sys.argv[8])
-wd_name = f'GAP_{FROM}-{TO}_{STEP}_{FROM_rank}-{TO_rank}_{Breath}_{cutoff}_{sparse}'
+Arg = sys.argv
+EIGVEC = Arg[1]
+STEP = int(Arg[2])
+RANK_from = int(Arg[3])
+RANK_to = int(Arg[4])
+Breath = Arg[5]
+cutoff= float(Arg[6])
+sparse = int(Arg[7])
+
+EIGVEC = EIGVEC.split()
+_EIGVEC = '-'.join(EIGVEC)
+
+wd_name = f'GAP_{_EIGVEC}_{STEP}_{RANK_from}-{RANK_to}_{Breath}_{cutoff}_{sparse}'
+
 
 print(f'{fg(15)} {bg(5)} Training GAP {attr(0)}')
 print()
@@ -19,10 +24,11 @@ os.system('/scratch/home/uccatka/virtualEnv/bin/gap_fit \
 energy_parameter_name=energy \
 force_parameter_name=forces \
 do_copy_at_file=F \
-sparse_separate_file=T \
+sparse_separate_file=F \
 gp_file=%s/FIT/GAP.xml \
 at_file=%s/FIT/Training_set.xyz \
 default_sigma={0.008 0.04 0 0} \
+sparse_jitter=1.0e-8 \
 gap={distance_2b \
 cutoff=%s \
 covariance_type=ard_se delta=0.5 \
