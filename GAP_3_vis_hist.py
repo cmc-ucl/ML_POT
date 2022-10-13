@@ -15,7 +15,6 @@ from ase import Atoms
 from quippy.potential import Potential
 
 print()
-print()
 print(f'{fg(15)} {bg(5)} Visualisation {attr(0)}')
 print()
 print()
@@ -23,21 +22,24 @@ print()
 binwidth = 0.05
 sig2 = 0.005
 
-FROM = int(sys.argv[1])
-TO = int(sys.argv[2])
-STEP = int(sys.argv[3])
-FROM_rank = int(sys.argv[4])
-TO_rank = int(sys.argv[5])
-Breath = sys.argv[6]
-cutoff = float(sys.argv[7])
-sparse = int(sys.argv[8])
-wd_name = f'GAP_{FROM}-{TO}_{STEP}_{FROM_rank}-{TO_rank}_{Breath}_{cutoff}_{sparse}'
+Arg = sys.argv
+EIGVEC = Arg[1]
+STEP = int(Arg[2])
+RANK_from = int(Arg[3])
+RANK_to = int(Arg[4])
+Breath = Arg[5]
+cutoff= float(Arg[6])
+sparse = int(Arg[7])
 
-GULP = gulp.GULP(STEP, FROM, TO, SP='set')
+EIGVEC = EIGVEC.split()
+_EIGVEC = '-'.join(EIGVEC)
+
+wd_name = f'GAP_{_EIGVEC}_{STEP}_{RANK_from}-{RANK_to}_{Breath}_{cutoff}_{sparse}'
+
+GULP = gulp.GULP(STEP, EIGVEC, SP='set')
 
 cwd = os.getcwd()
 wd = [os.path.join(cwd, x) for x in os.listdir('./') if os.path.isdir(x) and wd_name in x]
-#full_wd = sorted(wd, key=os.path.getmtime)[-1]
 try:
     full_wd = wd[0]
 except IndexError:
@@ -51,10 +53,9 @@ FIT_dir_path = os.path.join(full_wd, 'FIT')
 Training_xyz_path = os.path.join(FIT_dir_path, 'Training_set.xyz')
 Valid_xyz_path = os.path.join(FIT_dir_path, 'Valid_set.xyz')
 
-###########################
-# Interatomic  potential  #
-###########################
-
+#############################################################
+# prepare dimer curve data using the Interatomic  potential #
+#############################################################
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 
@@ -175,7 +176,6 @@ all_homo_dist = []
 
 for numi, i in enumerate(coordinates):
     nbins, npairs_all, npairs_het, npairs_homo, all_dist, het_dist, homo_dist, opdata = GULP.RDF(numi+1, no_of_atoms, i, ID[numi], binwidth, sig2)
-    
     all_het_dist += het_dist
     all_homo_dist += homo_dist
 
@@ -183,7 +183,7 @@ for numi, i in enumerate(coordinates):
 # Plotting Born-Mayer, GAP, RDF #
 #################################
 # E vs r
-fig = make_subplots(specs=[[{"secondary_y": True}]])
+fig = go.FigureWidget()
 
 # Generated Born-Mayer potential
 def BM(x):
@@ -203,139 +203,120 @@ def buck4(x):           # 2.73154 Å F-F distance
         return -15.83/P3035**6
 
 
-
 # Born-Mayer Al-F potential
+BM_color = 'rgb(10, 120, 24)'
 df['Al-F(BM)'] = BM(x_axis)
 
-fig.add_trace(
-    go.Scatter(x=x_axis, y=BM(x_axis), mode='lines', name=f'Al-F Born-Mayer',
-    line = dict(shape = 'linear', color = 'rgb(10, 120, 24)', dash = 'dot')),
-    secondary_y=False,)
-
-# Buck4 F-F potential 
+trace1 = fig.add_scatter(x=x_axis, y=BM(x_axis), mode='lines', name='Al-F Born-Mayer',\
+        line = dict(shape='linear', color=BM_color, dash='dot')
+        )
+# Buckingham 4-region F-F potential 
 df['F-F(buck4)'] = buck4(x_axis)
 df.to_csv(f'{full_wd}/GAP_pot_tabulated.csv', index=False)
 
-fig.add_trace(
-    go.Scatter(x=x_axis, y=buck4(x_axis), mode='lines', name=f'F-F Buck4',
-    line = dict(shape = 'linear', color = 'firebrick', dash = 'dot')))
-    
+trace2 = fig.add_scatter(x=x_axis, y=buck4(x_axis), mode='lines', name='F-F Buck4',\
+        line = dict(shape='linear', color='firebrick', dash='dot')
+        )
+
 
 #####################
 ### GAP potential ###
 #####################
 # Al-F
-fig.add_trace(
-    go.Scatter(x=df['r'].to_numpy(), y=df[df.columns[1]].to_numpy(), mode='lines', name='Al-F GAP potential',
-    line = dict(shape = 'linear', color = 'rgb(10, 120, 24)')), #, visible='legendonly'),
-    secondary_y=False,)
+trace3 = fig.add_scatter(x=df['r'], y=df[df.columns[1]], mode='lines', name='Al-F GAP potential',\
+        line = dict(shape='linear', color = BM_color))#, secondary_y=False,)
 
-# Al-F (same results but the data points' x-axis is match with F-F scaled)
-#fig.add_trace(
-#    go.Scatter(x=df['r_scaled'].to_numpy(), y=df['Al-F(GAP)_scaled'].to_numpy(), mode='lines', name='Al-F GAP potential_2'), #, visible='legendonly'),
-#    secondary_y=False,)
+## Al-F (same results but the data points' x-axis is match with F-F scaled)
+#trace_ = fig.add_scatter(x=df['r_scaled'], y=df['Al-F(GAP)_scaled'], mode='lines', name='Al-F GAP potential_2',\
+#        line=dict(shape='linear', color=BM_color))
 
 # F-F original
-fig.add_trace(
-    go.Scatter(x=df['r'], y=df['F-F(GAP)'], mode='lines', name='F-F GAP potential',
-    line = dict(shape = 'linear', color = 'firebrick')), #visible='legendonly',
-    secondary_y=False,)
+trace4 = fig.add_scatter(x=df['r'], y=df['F-F(GAP)'], mode='lines', name='F-F GAP potential',\
+line = dict(shape = 'linear', color = 'firebrick')) # , secondary_y=False,)
 
 # F-F scaled
 scaling = df['r'].tolist()
 scaling = [round(x/np.sqrt(3), 3) for x in scaling]
-fig.add_trace(
-    go.Scatter(x=df['r_scaled'], y=df['F-F(GAP)'], mode='lines', name='F-F GAP potential_scaling', visible='legendonly'),
-    secondary_y=False,)
-
-pd.options.display.max_columns = None
-pd.options.display.max_rows = None
-
+trace5 = fig.add_scatter(x=df['r_scaled'], y=df['F-F(GAP)'], mode='lines', name='F-F GAP potential_scaling', visible='legendonly')
 df.drop(columns=['Al-F(BM)', 'Al-Al(GAP)'], inplace=True)
 
 # Al-F + F-F
 df['GAP_sum'] = df['F-F(GAP)'] + df['Al-F(GAP)_scaled']
 df.to_csv('df_gap_sum.csv')
+trace6 = fig.add_scatter(x=df['r_scaled'], y=df['GAP_sum'], mode='lines', name='sum(GAP)', visible='legendonly')
 
-fig.add_trace(
-    go.Scatter(x=df['r_scaled'], y=df['GAP_sum'], mode='lines', name='sum(GAP)', visible='legendonly'),
-    secondary_y=False,)
 
-# MSE
-from_point = list(df['r']).index([x for x in df['r'] if 1.57 < x < 1.59][0])
-MSE_catan = round(mean_squared_error(df['Al-F(GAP)'][from_point:from_point+1], BM(x_axis)[from_point:from_point+1], squared=False), 4)
-
-from_point_a = list(df['r']).index([x for x in df['r'] if 2.7 < x < 2.9][0])
-MSE_an = round(mean_squared_error(df['F-F(GAP)'][from_point_a:from_point_a+1], buck4(x_axis)[from_point_a:from_point_a+1], squared=False), 4)
+## MSE (± 0.5 from the equilibrium interatomic distnace)
+from_point = list(df['r']).index([x for x in df['r'] if 1.57705-0.5 < x][0])
+to_point = list(df['r']).index([x for x in df['r'] if x < 1.57705+0.5][-1])
+MSE_catan = round(mean_squared_error(df['Al-F(GAP)'][from_point:to_point], BM(x_axis)[from_point:to_point], squared=False), 4)
+from_point_a = list(df['r']).index([x for x in df['r'] if 2.73154-0.5 < x < 2.73154+0.5][0])
+to_point_a = list(df['r']).index([x for x in df['r'] if x < 2.73154+0.5][-1])
+MSE_an = round(mean_squared_error(df['F-F(GAP)'][from_point_a:to_point_a], buck4(x_axis)[from_point_a:to_point_a], squared=False), 4)
 with open(f'{wd_name}/MSE.txt', 'w') as f:
     f.write(str(MSE_catan))
     f.write('\n')
     f.write(str(MSE_an))
-
 print(f'RMSE(cat-an): {MSE_catan}')
 print(f'RMSE(an-an): {MSE_an}')
 
-# Vertial-dash line to show equilibrium interatomic distances for Al-F, F-F
-fig.add_vline(x=1.57705, line_width=2, line_dash="dash", line_color="rgb(10, 120, 24)")
-fig.add_vline(x=2.73154, line_width=2, line_dash="dash", line_color="firebrick")
-fig.add_trace(
-    go.Histogram(
-    x = all_het_dist, #cnt_het,
-    xbins = dict(
-            start=0,
-            end=6,
-            size=0.005
-            ),
-    histnorm='percent',
-    marker_color = 'rgb(10, 120, 24)',
-    name='Number of hetero species interatomic distance'
-    ), secondary_y=True)
 
-fig.add_trace(
-    go.Histogram(
-    x = all_homo_dist, #cnt_homo,
-    xbins = dict(
-            start=0, 
-            end=6, 
-            size=0.005
-            ),
-    histnorm='percent',
-    marker_color = 'firebrick',
-    name='Number of homo species interatomic distance'
-    ), secondary_y=True)
-    #px.bar(x=bins, y=cnt, labels={'x':'Interatomic distance / Å', 'y':'count'})
+# Histogram above the potential figure (uppger panel)
+trace7 = fig.add_histogram(x=all_het_dist, xbins=dict(start=0, end=6, size=0.005), marker_color=BM_color,\
+                            name='Number of hetero species interatomic distance', yaxis='y2')
+trace8 = fig.add_histogram(x=all_homo_dist, xbins=dict(start=0, end=6, size=0.005), marker_color='firebrick',\
+                            name='Number of homo species interatomic distance', yaxis='y2')
 
-# Add figure title
-fig.update_layout(title_text="GAP and generated Al-F Born-Mayer potential, and RDF of training data",
-                  xaxis_title_text='Interatomic distance (Å)',
-                  yaxis_title_text='Potential energy / eV',
+fig.layout = dict(xaxis=dict(domain=[0, 0.8], showgrid=False, zeroline=False, title='Interatomic distance / Å'),
+                  yaxis=dict(domain=[0, 0.8], range=[-20, 50], showgrid=False, zeroline=True, title='Potential energy / eV'),
+                  margin=dict(l=80, r=80, t=80, b=150),
+                  width=1800,
+                  height=800,
+                  hovermode='closest',
+                  bargap=0.8,
+                  xaxis2=dict(domain=[0.85, 1], showgrid=False, zeroline=False, ),
+                  yaxis2=dict(domain=[0.85, 1], showgrid=False, zeroline=False, title='Count'),
+                  font=dict(size=20),
                   )
-                
-fig.update_layout(margin=dict(l=80, r=80, t=80, b=150))
-fig.update_layout(font=dict(size=20))
 
-fig.add_annotation(dict(font=dict(color='black',size=15),
-                                        x=0,
-                                        y=-0.12,
-                                        showarrow=False,
-                                        text=f"\
-RMSE = {MSE_catan} (at nearest distance > 1.57 Å \
-between V(GAP[Al-F]) and V(BM[Al-F])<br> RMSE = {MSE_an} \
-(at nearest distance > 2.7 Å between V(GAP[F-F]) and V(buck4[F-F])",
-                                        textangle=0,
-                                        xanchor='left',
-                                        xref="paper",
-                                        yref="paper"))
+# Transparent vertical region where from the shortest to longest interatomic distance covered by the training structure 
+fig.add_vrect(
+    x0=min(all_het_dist) ,x1=max(all_het_dist) ,
+    fillcolor=BM_color, opacity=0.4,
+    layer="below", line_width=1,)
 
-fig.update_yaxes(range=[-20, 50], secondary_y=False)
-fig.update_yaxes(title_text="Count / %", secondary_y=True)
-fig['layout']['yaxis2']['showgrid'] = False
+fig.add_vrect(
+    x0=min(all_homo_dist) ,x1=max(all_homo_dist) ,
+    fillcolor='firebrick', opacity=0.4,
+    layer="below", line_width=1,) 
+
+# Vertial-dash line to show equilibrium interatomic distances for Al-F, F-F
+fig.add_vline(x=1.57705, line_width=2, line_dash="dash", line_color=BM_color)
+fig.add_vline(x=2.73154, line_width=2, line_dash="dash", line_color="firebrick")
+fig.add_annotation(
+            #size=15,
+            x=0.6,
+            y=0.7,
+            text=f"RMSE(Al-F) = {MSE_catan} <br> RMSE(F-F) = {MSE_an}",
+            xanchor='left',
+            xref="paper",
+            yref="paper")
+
+#fig.add_annotation(
+#            #size=15,
+#            x=0,
+#            y=-0.25,
+#            text=f"RMSE = {MSE_catan} (at nearest distance > 1.57 Å \
+#between V(GAP[Al-F]) and V(BM[Al-F])<br> RMSE = {MSE_an} \
+#(at nearest distance > 2.7 Å between V(GAP[F-F]) and V(buck4[F-F])",
+#            xanchor='left',
+#            xref="paper",
+#            yref="paper")
+            
+
 
 fig.write_html(f'./{wd_name}/plot.html')
 
 print(f'\n\n\n The plot (./{wd_name}/plot.html) is saved -- Good luck!\n\n\n')
-
-
-
 
 
