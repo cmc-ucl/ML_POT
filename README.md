@@ -16,3 +16,6 @@ How to use the code: <br>
 (it shows the ideal potentials that we want to reproduce, GAP potentials (cation-anion and anion-anion), RDF of the training data configurations, transparent-boxed interatomic distance region (green/red) that covered by the training data (cation-anion/anion-anion) 
 
 ```gap_3_vis_hist.py```: same as ```GAP_3_vis.py``` but visualise interatomic distance in histogram manner rather than RDF.
+<br>
+<br>
+*The script will be further modulised for numerous purpose. If you have any questions about the project please ask me*
