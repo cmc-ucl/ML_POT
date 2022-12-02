@@ -392,7 +392,7 @@ class GULP:
                     os.mkdir(f"{path}/{str(numi+1)}")
 
                     # Resolution of vibrational mode
-                    for j in range(-1000, 1000, self.STEP):
+                    for j in range(-1000, 1000+self.STEP, self.STEP):
                         if j != 0:
                             mod_eigvec_array = eigvec_array[i] * (int(j) / 1000)
                             # step=10 -> [-1.0, -0.9, -0.8, -0.7, -0.6, -0.5,...]
@@ -583,6 +583,7 @@ class GULP:
         atom_coord_and_force = atom_coord_and_force.tolist()
 
         ext_xyz = os.path.join(FINAL_PATH_FULL, "ext_gulp.xyz")
+
         with open(ext_xyz, "a") as f:
             f.write(str(no_of_atoms) + "\n")
             f.write('Lattice="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" ')
@@ -592,7 +593,10 @@ class GULP:
                 new = [str(x) for x in i]
                 new = "    ".join(new) + "\n"
                 f.write(new)
-        with open("ext_movie.xyz", "a") as f:
+
+        parent_wd = FINAL_PATH_FULL.split('/')[0]
+        all_ext_movie = os.path.join(parent_wd, "ext_movie.xyz")
+        with open(all_ext_movie, "a") as f:
             f.write(str(no_of_atoms) + "\n")
             f.write('Lattice="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" ')
             f.write('Properties=species:S:1:pos:R:3:forces:R:3 ')
