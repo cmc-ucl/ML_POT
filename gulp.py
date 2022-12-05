@@ -420,41 +420,41 @@ class GULP:
                                     f.write(new)
 
                 if "all" in self.EIGVEC:
+                    if numi >= 6:
+                        os.mkdir(f"{path}/{str(numi+1)}")
+                        print(
+                            f"{fg(2)} Optimised cartesian coordinates + [{numi+1} eigvec] {attr(0)}"
+                        )
+                        print(eigvec_array[i])
+                        print()
 
-                    os.mkdir(f"{path}/{str(numi+1)}")
-                    print(
-                        f"{fg(2)} Optimised cartesian coordinates + [{numi+1} eigvec] {attr(0)}"
-                    )
-                    print(eigvec_array[i])
-                    print()
-
-                    # Resolution of vibrational mode
-                    for j in range(-1000, 1000, self.STEP):
-                        if j != 0:
-                            mod_eigvec_array = eigvec_array[i] * (int(j) / 1000)
-                            # step=10 -> [-1.0, -0.9, -0.8, -0.7, -0.6, -0.5,...]
-                            # step=30 -> [-1.0, -0.7, -0.4, -0.1, 0.2, 0.5,
-                            # ...]
-                            new_coord = coord + mod_eigvec_array
-                            stack = np.c_[ID, new_coord]
-                            stack = stack.tolist()
-                            with open(
-                                f"{path}/{str(numi+1)}/mod_{str(j)}.xyz", "w"
-                            ) as f:
-                                f.write(str(no_of_atoms) + "\n")
-                                f.write(total_energy + "\n")
-                            with open(f"{path}/{str(numi+1)}/movie.xyz", "a") as f:
-                                f.write(str(no_of_atoms) + "\n")
-                                f.write(total_energy + "\n")
-
-                            for k in stack:
-                                new = "\t\t".join(k) + "\n"
+                        # Resolution of vibrational mode
+                        for j in range(-1000, 1000+self.STEP, self.STEP):
+                            if j != 0:
+                                mod_eigvec_array = eigvec_array[i] * (int(j) / 1000)
+                                # step=10 -> [-1.0, -0.9, -0.8, -0.7, -0.6, -0.5,...]
+                                # step=30 -> [-1.0, -0.7, -0.4, -0.1, 0.2, 0.5,
+                                # ...]
+                                new_coord = coord + mod_eigvec_array
+                                stack = np.c_[ID, new_coord]
+                                stack = stack.tolist()
                                 with open(
-                                    f"{path}/{str(numi+1)}/mod_{str(j)}.xyz", "a"
+                                    f"{path}/{str(numi+1)}/mod_{str(j)}.xyz", "w"
                                 ) as f:
-                                    f.write(new)
+                                    f.write(str(no_of_atoms) + "\n")
+                                    f.write(total_energy + "\n")
                                 with open(f"{path}/{str(numi+1)}/movie.xyz", "a") as f:
-                                    f.write(new)
+                                    f.write(str(no_of_atoms) + "\n")
+                                    f.write(total_energy + "\n")
+
+                                for k in stack:
+                                    new = "\t\t".join(k) + "\n"
+                                    with open(
+                                        f"{path}/{str(numi+1)}/mod_{str(j)}.xyz", "a"
+                                    ) as f:
+                                        f.write(new)
+                                    with open(f"{path}/{str(numi+1)}/movie.xyz", "a") as f:
+                                        f.write(new)
 
                     if DEBUG == "debug":
                         print("\nDebugging mode on: Modifying_xyz")
@@ -567,6 +567,15 @@ class GULP:
         print()
         return None
 
+
+    def Dist_calculator(self, coord, no_of_atoms):
+        dist = []
+        for i in range(no_of_atoms):
+            for j in range(i+1, no_of_atoms):
+                distance = np.round(np.linalg.norm(coord[i, :] - coord[j, :]), 9)
+                dist.append(distance)
+        return dist
+
     def Ext_xyz_gulp(self, FINAL_PATH_FULL, no_of_atoms, eigvec_array, FORCES, ENERGY):
         """Generate xyz (extended) file which contains cartesian
         coordinates & atomic forces"""
@@ -576,36 +585,51 @@ class GULP:
         array = [x.split() for x in lines]
         array = np.asarray(array)
         coord = array[:, 1:].astype(float)
-        atom = array[:, 0].astype(str)
-        coord_and_eigvec = coord
-        atom = atom.reshape(-1, 1)
-        atom_coord_and_force = np.concatenate([atom, coord_and_eigvec, FORCES], axis=1)
-        atom_coord_and_force = atom_coord_and_force.tolist()
 
-        ext_xyz = os.path.join(FINAL_PATH_FULL, "ext_gulp.xyz")
+        dist = self.Dist_calculator(coord, no_of_atoms)
+        if any(item < 0.8 for item in dist):
+            print()
+            print()
+            print("#### {xyz_name}")
+            print(dist)
+            print()
+            return None
+        else:
+            print()
+            print()
+            print(f"{xyz_name}")
+            print(dist)
+            print()
+            atom = array[:, 0].astype(str)
+            coord_and_eigvec = coord
+            atom = atom.reshape(-1, 1)
+            atom_coord_and_force = np.concatenate([atom, coord_and_eigvec, FORCES], axis=1)
+            atom_coord_and_force = atom_coord_and_force.tolist()
 
-        with open(ext_xyz, "a") as f:
-            f.write(str(no_of_atoms) + "\n")
-            f.write('Lattice="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" ')
-            f.write('Properties=species:S:1:pos:R:3:forces:R:3 ')
-            f.write(f'energy={ENERGY} pbc="F F F"\n')
-            for i in atom_coord_and_force:
-                new = [str(x) for x in i]
-                new = "    ".join(new) + "\n"
-                f.write(new)
+            ext_xyz = os.path.join(FINAL_PATH_FULL, "ext_gulp.xyz")
 
-        parent_wd = FINAL_PATH_FULL.split('/')[0]
-        all_ext_movie = os.path.join(parent_wd, "ext_movie.xyz")
-        with open(all_ext_movie, "a") as f:
-            f.write(str(no_of_atoms) + "\n")
-            f.write('Lattice="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" ')
-            f.write('Properties=species:S:1:pos:R:3:forces:R:3 ')
-            f.write('energy={ENERGY} pbc="F F F"\n')
-            for i in atom_coord_and_force:
-                new = [str(x) for x in i]
-                new = "    ".join(new) + "\n"
-                f.write(new)
-        return None
+            with open(ext_xyz, "a") as f:
+                f.write(str(no_of_atoms) + "\n")
+                f.write('Lattice="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" ')
+                f.write('Properties=species:S:1:pos:R:3:forces:R:3 ')
+                f.write(f'energy={ENERGY} pbc="F F F"\n')
+                for i in atom_coord_and_force:
+                    new = [str(x) for x in i]
+                    new = "    ".join(new) + "\n"
+                    f.write(new)
+
+            parent_wd = FINAL_PATH_FULL.split('/')[0]
+            all_ext_movie = os.path.join(parent_wd, "ext_movie.xyz")
+            with open(all_ext_movie, "a") as f:
+                f.write(str(no_of_atoms) + "\n")
+                f.write('Lattice="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" ')
+                f.write('Properties=species:S:1:pos:R:3:forces:R:3 ')
+                f.write('energy={ENERGY} pbc="F F F"\n')
+                for i in atom_coord_and_force:
+                    new = [str(x) for x in i]
+                    new = "    ".join(new) + "\n"
+                    f.write(new)
+            return None
 
     def gaussian(self, x, b, sigma2):
         pi = np.arccos(-1.0)
@@ -632,25 +656,17 @@ class GULP:
         homo_dup_filter = []
         for numi, i in enumerate(coord):
             for numj, j in enumerate(coord):
-                if numi != numj \
-                   and (str(numj)+str(numi) not in all_dup_filter):  # ALL
-                    print(ID[numi], ID[numj], numi, numj)
+                if numi != numj and (str(numj)+str(numi) not in all_dup_filter):  # ALL
                     npairs_all += 1
                     distance = np.round(np.linalg.norm(i - j), 9)
                     all_dist.append(distance)
                     all_dup_filter.append(str(numi)+str(numj))
-                if ID[numi] != ID[numj] \
-                   and (str(numj)+str(numi) not in het_dup_filter):
-                    #print('het')
-                    #print(ID[numi], ID[numj], numi, numj)
+                if ID[numi] != ID[numj] and (str(numj)+str(numi) not in het_dup_filter):
                     npairs_het += 1
                     distance = np.round(np.linalg.norm(i - j), 9)
                     het_dist.append(distance)
                     het_dup_filter.append(str(numi)+str(numj))
-                if ID[numi] == ID[numj] and numi != numj \
-                   and (str(numj)+str(numi) not in homo_dup_filter):
-                    #print('homo')
-                    #print(ID[numi], ID[numj], numi, numj)
+                if ID[numi] == ID[numj] and numi != numj and (str(numj)+str(numi) not in homo_dup_filter):
                     npairs_homo += 1
                     distance = np.round(np.linalg.norm(i - j), 9)
                     homo_dist.append(distance)

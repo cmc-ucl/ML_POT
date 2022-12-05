@@ -8,6 +8,21 @@ from colored import fg, bg, attr
 import numpy as np
 import gulp
 
+'''
+V Aug 2022: v1.0.0 preparing trainig data using GULP
+V Aug 2022: v1.1.0 GAP training 
+V Sep 2022: v1.2.0 dimer curve (Al-F pairwise interaction energy vs interatomic distance)
+V Oct 2022: v1.3.0 separate the prep, train, vis scripts
+V Oct 2022: v1.3.1 vis script: RDF
+V Nov 2022: v1.3.2 vis script: histogram instead of RDF
+V Dec 2022: v1.4.0 prep: degeracy filter
+V Dec 2022: v1.4.1 prep: symmetric (duplicate) configuration filter
+
+V Dec 2022: v1.4.2 prep: extremely short interatomic dist filter
+'''
+
+
+
 Arg = sys.argv
 EIGVEC = Arg[1]
 STEP = int(Arg[2])
@@ -254,9 +269,6 @@ for f in files:
                     lambda_name = int(j.split('/')[-1].split('_')[1].split('.xyz')[0])
                     hashtable_e[lambda_name] = float(tot_energy)
 
-                    
-                    #try:
-                        #########
                     if dup_filter == "n":
                         GULP.Ext_xyz_gulp(
                             FINAL_PATH_FULL,
@@ -265,10 +277,6 @@ for f in files:
                             FORCES_GULP,
                             tot_energy,
                         )
-                        ########
-                    #except:
-                    #    pass
-                    
 
                     E.append(tot_energy)
             df_dict = pd.DataFrame.from_dict(hashtable_e, orient='index', columns=[i])
@@ -276,7 +284,7 @@ for f in files:
 
             #pack_hashtable_e[i] = hashtable_e
 
-        ## Symmetric configuration
+        ## Symmetric (duplicate) configuration filter
         # Drop columns if the component is choosen degenerate eigval
         if dup_filter == 'y':
             if len(EIGVEC) != 1:
@@ -289,8 +297,6 @@ for f in files:
 
         lambda_energy = lambda_energy.drop(index=0)
         #lambda_energy.to_csv('energy_lambda.csv')
-
-        # dictionary of dictionary which contains the structure energy
         dict_lambda_energy = lambda_energy.to_dict('index')
 
         # filter the symmetric configuration from eigvec
@@ -325,7 +331,7 @@ for f in files:
         # symmetric config filter END
 os.chdir("..")
 del files, GULP_gout_PATH, sub_wd, mod_list, mod_list_PATH, spliter, gulp_out
-                    
+
 
 #################################################
 # Preparing for GAP potential trainig data file #
@@ -337,16 +343,13 @@ eigval_dir = [os.path.join(pot, x) for x in os.listdir(pot)
               if os.path.isdir(os.path.join(pot, x)) == True]
 eigval_dir = sorted(eigval_dir, key=lambda x: int(x.split('/')[-1]))
 
-#EIGVEC_NEW
-#sym
 
 for i in eigval_dir:
     sp_dir = [os.path.join(i, x) for x in os.listdir(i)
            if os.path.isdir(os.path.join(i, x))]
     sp_dir = sorted(sp_dir, key=lambda x: int(x.split('_')[-1]))
     print(i)
-    #for j in EIGVEC_NEW:
-   
+        
     if dup_filter == 'y':
         if i.split('/')[-1] in sym:
             for k in sp_dir[int(round(len(sp_dir)/2))+1:]:
@@ -362,21 +365,35 @@ for i in eigval_dir:
                 GULP.Ext_xyz_gulp(
                     k, no_of_atoms, None, FORCES_GULP, tot_energy
                 )
-
         else:
             for l in sp_dir:
                 print(l)
                 gulp_out = os.path.join(l, "gulp.gout")
                 tot_energy, eigv_array, fre, FORCES_GULP = GULP.Grep_Data(
-                                gulp_out,
-                                no_of_atoms,
-                                l,
-                                "y",
-                                DEBUG
-                            )
+                    gulp_out,
+                    no_of_atoms,
+                    l,
+                    "y",
+                    DEBUG
+                )
                 GULP.Ext_xyz_gulp(
                     l, no_of_atoms, None, FORCES_GULP, tot_energy
                 )
+
+    else:
+        for l in sp_dir:
+            print(l)
+            gulp_out = os.path.join(l, "gulp.gout")
+            tot_energy, eigv_array, fre, FORCES_GULP = GULP.Grep_Data(
+                            gulp_out,
+                            no_of_atoms,
+                            l,
+                            "y",
+                            DEBUG
+                        )
+            GULP.Ext_xyz_gulp(
+                l, no_of_atoms, None, FORCES_GULP, tot_energy
+            )
         
 
 
@@ -461,6 +478,5 @@ Properties=species:S:1:pos:R:3:forces:R:3 energy=0.000000000000 \
 free_energy={F_atom_energy} pbc="F F F"\n'
     )
     f.write("F 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000\n")
-
 
 
