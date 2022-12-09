@@ -1,15 +1,15 @@
 ## GULP-GAP interface 
 version 1.4.2
 
-V Aug 2022: v1.0.0 preparing trainig data using GULP
-V Aug 2022: v1.1.0 GAP training
-V Sep 2022: v1.2.0 dimer curve (Al-F pairwise interaction energy vs interatomic distance)
-V Oct 2022: v1.3.0 separate the prep, train, vis scripts
-V Oct 2022: v1.3.1 vis script: RDF
-V Nov 2022: v1.3.2 vis script: histogram instead of RDF
-V Dec 2022: v1.4.0 prep: degeracy filter
-V Dec 2022: v1.4.1 prep: symmetric (duplicate) configuration filter
-V Dec 2022: v1.4.2 prep: extremely short interatomic dist filter
+V Aug 2022: v1.0.0 preparing trainig data using GULP<br>
+V Aug 2022: v1.1.0 GAP training<br>
+V Sep 2022: v1.2.0 dimer curve (Al-F pairwise interaction energy vs interatomic distance)<br>
+V Oct 2022: v1.3.0 separate the prep, train, vis scripts<br>
+V Oct 2022: v1.3.1 vis script: RDF<br>
+V Nov 2022: v1.3.2 vis script: histogram instead of RDF<br>
+V Dec 2022: v1.4.0 prep: degeracy filter<br>
+V Dec 2022: v1.4.1 prep: symmetric (duplicate) configuration filter<br>
+V Dec 2022: v1.4.2 prep: extremely short interatomic dist filter<br>
 
 * * *
 How to use the code: <br>
