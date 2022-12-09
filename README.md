@@ -13,9 +13,9 @@ version 1.4.2
 
 * * *
 How to use the code: <br>
-```python GULP_GAP.py '{eigvec 1} {eigvec 2}...{eigvec n}' {step size for the lambda} {from what IP rank structure} {to what IP rank structure} {n or y (whether including the breathing config or not)} {GAP cutoff parameter} {GAP n_sparce parameter}```
+```python GULP_GAP.py '{eigvec 1} {eigvec 2}...{eigvec n}' {step size for the lambda} {from what IP rank structure} {to what IP rank structure} {n or y (whether including the breathing config or not)} {GAP cutoff parameter} {GAP n_sparce parameter} {degeneracy/duplicate filter}```
 <br>
-**Example**: ```python GULP_GAP.py '7 9 12' 10 1 10 n 3.0 100```
+**Example**: ```python GULP_GAP.py '7 9 12' 10 1 10 n 3.0 100 y```
 
 ```GAP_1_gulp.py```: Preparing IP structures (IP optimised structures, breathing configurations, IP optimised structures + (eigenvector*λ) <br>
 It will consider degenerate frequencies to select only one frequency which is to avoid the overfitting the potential energy landscape. <br>
