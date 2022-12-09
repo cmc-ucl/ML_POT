@@ -9,7 +9,7 @@ version 1.4.2
 ✅ Nov 2022: v1.3.2 vis script: histogram instead of RDF<br>
 ✅ Dec 2022: v1.4.0 prep: degeracy filter<br>
 ✅ Dec 2022: v1.4.1 prep: symmetric (duplicate) configuration filter<br>
-✅ Dec 2022: v1.4.2 prep: extremely short interatomic dist filter<br>
+✅ Dec 2022: v1.4.2 prep: extremely short interatomic dist filter [degeneracyFilter branch]<br>
 
 * * *
 How to use the code: <br>
