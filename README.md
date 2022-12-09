@@ -1,5 +1,16 @@
 ## GULP-GAP interface 
-version 1.4.0
+version 1.4.2
+
+V Aug 2022: v1.0.0 preparing trainig data using GULP
+V Aug 2022: v1.1.0 GAP training
+V Sep 2022: v1.2.0 dimer curve (Al-F pairwise interaction energy vs interatomic distance)
+V Oct 2022: v1.3.0 separate the prep, train, vis scripts
+V Oct 2022: v1.3.1 vis script: RDF
+V Nov 2022: v1.3.2 vis script: histogram instead of RDF
+V Dec 2022: v1.4.0 prep: degeracy filter
+V Dec 2022: v1.4.1 prep: symmetric (duplicate) configuration filter
+V Dec 2022: v1.4.2 prep: extremely short interatomic dist filter
+
 * * *
 How to use the code: <br>
 ```python GULP_GAP.py '{eigvec 1} {eigvec 2}...{eigvec n}' {step size for the lambda} {from what IP rank structure} {to what IP rank structure} {n or y (whether including the breathing config or not)} {GAP cutoff parameter} {GAP n_sparce parameter}```
