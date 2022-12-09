@@ -11,6 +11,7 @@ version 1.4.2
 ✅ Dec 2022: v1.4.1 prep: symmetric (duplicate) configuration filter<br>
 ✅ Dec 2022: v1.4.2 prep: extremely short interatomic dist filter [degeneracyFilter branch]<br>
 * * *
+[linke to the image](https://github.com/DGKang234/ML_POT/blob/degeneracyFilter/parameter_search/htmls)
 ![alt text](https://github.com/DGKang234/ML_POT/blob/degeneracyFilter/parameter_search/htmls/GAP_r-cutoff-energy.png)
 ![alt text](https://github.com/DGKang234/ML_POT/blob/degeneracyFilter/parameter_search/htmls/GAP_sparse-cutoff-energy_F-F.png)
 * * *
