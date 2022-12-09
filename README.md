@@ -10,7 +10,9 @@ version 1.4.2
 ✅ Dec 2022: v1.4.0 prep: degeracy filter<br>
 ✅ Dec 2022: v1.4.1 prep: symmetric (duplicate) configuration filter<br>
 ✅ Dec 2022: v1.4.2 prep: extremely short interatomic dist filter [degeneracyFilter branch]<br>
-
+* * *
+![alt text](https://github.com/DGKang234/ML_POT/blob/degeneracyFilter/parameter_search/htmls/GAP_r-cutoff-energy.png)
+![alt text](https://github.com/DGKang234/ML_POT/blob/degeneracyFilter/parameter_search/htmls/GAP_sparse-cutoff-energy_F-F.png)
 * * *
 How to use the code: <br>
 ```python GULP_GAP.py '{eigvec 1} {eigvec 2}...{eigvec n}' {step size for the lambda} {from what IP rank structure} {to what IP rank structure} {n or y (whether including the breathing config or not)} {GAP cutoff parameter} {GAP n_sparce parameter} {degeneracy/duplicate filter}```
