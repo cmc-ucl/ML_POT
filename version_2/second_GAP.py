@@ -22,16 +22,14 @@ else:
 vib = vib.split()
 _vib = "-".join(vib)
 
-
-#wd_name = f"GAP_{_vib}_{step}_{rank_from}-{rank_to}_{RANK_to}_{cutoff}_{sparse}"
 wd_name = f"GAP_{_vib}_{step}_{rank_from}-{rank_to}_{cutoff}_{sparse}"
 
 columns = shutil.get_terminal_size().columns
 print()
-print(f"{fg(15)} {bg(5)} Training GAP {attr(0)}".center(columns))
+print(f"{fg(15)} {bg(39)} Training GAP {attr(0)}".center(columns))
 GULP = GULP.GULP(step, vib, SP='set')
 GULP.GAP_2b_fit(wd_name, cutoff, sparse)
 print()
-print(f"{fg(15)} {bg(5)} Training finished {attr(0)}".center(columns))
+print(f"{fg(15)} {bg(39)} Training finished {attr(0)}".center(columns))
 
 

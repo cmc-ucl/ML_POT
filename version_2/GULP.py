@@ -7,15 +7,15 @@ import random
 import shutil
 import subprocess
 import collections
-from tqdm import tqdm
+import pandas as pd
 
-from sklearn.linear_model import LinearRegression
+from tqdm import tqdm
+from colored import fg, bg, attr
+
 from sklearn.metrics import mean_squared_error
 
 from ase import Atoms
 from quippy.potential import Potential
-
-from Structure_Analysis import *
 
 import plotly.graph_objects as go
 
@@ -134,8 +134,8 @@ class GULP:
             with open(xyz_file, "r") as coord:
                 lines = coord.readlines()
                 core_write, shel_write, coord_only, no_of_atoms = self.SUB_CONVERT_XYZ_TO_GULP(lines, DEBUG="n")
-                dest = xyz_file.split("/")[-1] # /scratch/home/uccatka/auto/for_GAP/test/top_structu
-                dest = dest.split(".")[0] # 001
+                dest = xyz_file.split("/")[-1]
+                dest = dest.split(".")[0]
             return core_write, shel_write, coord_only, dest, no_of_atoms
 
         elif xyz_file == 0:
@@ -143,7 +143,7 @@ class GULP:
             shel = []
             coord_only_ = []
             DEST = []
-            for dest, lines in tqdm(mod_xyz.items(), desc="Convert xyz to gulp input:"):
+            for dest, lines in tqdm(mod_xyz.items(), desc="Convert [xyz] to the [gulp] input:"):
                 os.mkdir(dest)
                 core_write, shel_write, coord_only, no_of_atoms = self.SUB_CONVERT_XYZ_TO_GULP(lines, DEBUG="n")
                 core.append([core_write])
@@ -217,7 +217,6 @@ class GULP:
             with open(gulp_input, "w") as f:
                 f.write(f"{keywords}\ncartesian\n")
                 f.write(geometry)
-                # f.write(anion_shel)
                 f.write("library /home/uccatka/auto/for_GAP/AlF_BM_RM\n")
                 f.write("xtol opt 6.000\n")
                 f.write("ftol opt 5.000\n")
@@ -276,17 +275,14 @@ class GULP:
         for numi, i in enumerate(lines):
             if ("Total lattice energy       =" in i) and ("eV" in i):
                 total_energy = i.split()[4]
-
                 if DEBUG == "debug":
                     print("\nDebugging mode on: Grep_TOTAL_ENERGY")
                     print(f"Total lattice energy       = {total_energy}")
-                else:
-                    pass
-                #else:
-                #    pass
+                else: pass
         return total_energy
 
     def GREP_FREQ(self, lines, no_of_atoms, DEBUG="n"):
+        """ """
         freq_from = []
         freq_to = []
         freq_line_no = []
@@ -301,8 +297,6 @@ class GULP:
                 freq_eigval.extend(i.split()[1:])
                 #cnt += 1
                 if DEBUG == "debug":
-                    print()
-                    print()
                     print()
                 else: pass
 
@@ -372,7 +366,7 @@ class GULP:
 
     def DUP_FILTER(self, dest, eigvec_array, freq_eigval, no_of_atoms, hashtable_e, degen, sym, DEBUG):
         if len(self.EIGVEC) != 1:
-            if (degen == 1 and sym == 0): # or (degen == 1 or sym == 1):
+            if (degen == 1 and sym == 0):
                 freq_eigval = [int(float(x)*1000)/1000 for x in freq_eigval]  # up to three decimal places
                 dup_freq_eigval = [item for item, count in collections.Counter(freq_eigval).items() if count > 1]
                 dup_indicies = []
@@ -410,7 +404,6 @@ class GULP:
                 return EIGVAL_NEW, EIGVEC_NEW
 
         if (degen == 0 and sym == 1):
-            #df_dict = pd.DataFrame.from_dict(hashtable_e, orient='index', columns=[dest.split('_')[1]])
             lambda_energy = pd.DataFrame(hashtable_e, columns=["eigval", "lambda", 'E'])
             lambda_energy = lambda_energy.set_index(["eigval"])
             index_list = list(set(lambda_energy.index.values.tolist()))
@@ -434,10 +427,6 @@ class GULP:
             for i in symmetric:
                 os.remove(os.path.join(i, "ext_movie.xyz"))
                 target = os.path.join(os.getcwd(), i)
-                #target_ext_movie = os.path.join(target, "ext_movie.xyz")
-                #with open(target_ext_move, 'r') as f:
-                #    lines = f.readlines()
-                #    uniq = uniq[int(len(uniq)/2):]
                 target_contents = [x for x in os.listdir(target) if os.path.isdir(os.path.join(target, x))]
                 target_contents = sorted(target_contents, key = lambda x: int(x.split('_')[1]))
                 target_contents = target_contents[int(len(target_contents)/2):]
@@ -465,7 +454,13 @@ class GULP:
 
         mod_xyz = {}
         for numi, i in enumerate(eigval):
-            wd = str(i) #os.path.join(path, str(i))
+            if DEBUG == "debug":
+                print("***")
+                print(i)
+                print(eigvec[int(i)-1])
+            else: pass
+
+            wd = str(i)
             try:
                 os.mkdir(wd)
             except FileExistsError:
@@ -473,7 +468,7 @@ class GULP:
                 os.mkdir(wd)
             for j in range(-1000, 1000+self.STEP, self.STEP):
                 if j != 0:
-                    mod_eigvec = eigvec[numi] * (int(j) / 1000)
+                    mod_eigvec = eigvec[int(i)-1] * (int(j) / 1000)
                     new_coord = np.around(coord + mod_eigvec, 9)
                     stack = np.c_[ID, new_coord]
                     stack = stack.tolist()
@@ -539,7 +534,6 @@ class GULP:
 
         all_dist = self.DIST_CALC(coord, no_of_atoms)
         if any(item < 0.8 for item in all_dist):
-            print("#####", final_full_path)
             return True
         else:
             return False
@@ -650,7 +644,8 @@ sparse_method=uniform \
 n_sparse=%s}"
 % (wd_name, wd_name, cutoff, sparse)
 )
-
+        columns = shutil.get_terminal_size().columns
+        print("\nCalculate Training data using the trained GAP IP".center(columns))
         # Compute Training_set.xyz with the trained GAP pot
         os.system(
             "/scratch/home/uccatka/virtualEnv/bin/quip E=T F=T \
@@ -658,8 +653,9 @@ n_sparse=%s}"
         | grep AT | sed 's/AT//' > %s/FIT/quip_train.xyz"
             % (wd_name, wd_name, wd_name)
         )
-        
+
         # Compute Valid_set.xyz with the trained GAP pot
+        print("\nCalculate Validation data using the trained GAP IP".center(columns))
         os.system(
             "/scratch/home/uccatka/virtualEnv/bin/quip E=T F=T \
         atoms_filename=%s/FIT/Valid_set.xyz param_filename=%s/FIT/GAP.xml \
@@ -924,10 +920,12 @@ n_sparse=%s}"
             f.write(str(MSE_catan))
             f.write("\n")
             f.write(str(MSE_an))
-        print("**************************") 
-        print(f"RMSE(cat-an): {MSE_catan}")
-        print(f"RMSE(an-an): {MSE_an}")
-        print("**************************\n")
+        columns = shutil.get_terminal_size().columns
+        print("**************************".center(columns)) 
+        print(f"RMSE(cat-an): {MSE_catan}".center(columns))
+        print(f"RMSE(an-an): {MSE_an}".center(columns))
+        print("**************************".center(columns))
+        print("\n")
         # Histogram above the potential figure (uppger panel)
 
         trace7 = fig.add_histogram(
@@ -1000,24 +998,7 @@ n_sparse=%s}"
             xanchor="left",
             xref="paper",
             yref="paper")
-
         fig.write_html(f"./{wd_name}/plot.html")
-        columns = shutil.get_terminal_size().columns
-        print(f"The plot (./{wd_name}/plot.html) is saved -- Good luck!".center(columns))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     def RDF(self, no_of_atoms, coord, ID, binwidth):
         """Binning the interatomic distnace"""
@@ -1064,70 +1045,3 @@ n_sparse=%s}"
         return (nbins, npairs_all, npairs_het, npairs_homo, all_dist, het_dist, homo_dist, opdata)
 
 
-#    def DIST_CALC(self, NUMi, no_of_atoms, coord, ID, binwidth, sig2):
-#        """Binning the interatomic distnace"""
-#
-#        all_dist = []
-#        het_dist = []
-#        homo_dist = []
-#        npairs_all = 0
-#        npairs_het = 0
-#        npairs_homo = 0
-#
-#        all_dup_filter = []
-#        het_dup_filter = []
-#        homo_dup_filter = []
-#
-#        for numi, i in enumerate(coord):
-#            for numj, j in enumerate(coord):
-#                if numi != numj and (str(numj)+str(numi) not in all_dup_filter):  # ALL
-#                    npairs_all += 1
-#                    distance = np.round(np.linalg.norm(i - j), 9)
-#                    all_dist.append(distance)
-#                    all_dup_filter.append(str(numi)+str(numj))
-#                elif ID[numi] != ID[numj] and (str(numj)+str(numi) not in het_dup_filter):
-#                    npairs_het += 1
-#                    distance = np.round(np.linalg.norm(i - j), 9)
-#                    het_dist.append(distance)
-#                    het_dup_filter.append(str(numi)+str(numj))
-#                elif ID[numi] == ID[numj] and numi != numj and (str(numj)+str(numi) not in
-#                    npairs_homo += 1
-#                    distance = np.round(np.linalg.norm(i - j), 9)
-#                    homo_dist.append(distance)
-#                    homo_dup_filter.append(str(numi)+str(numj))
-#                else: pass
-#
-#        # Prepare the bin
-#        tmp = np.ceil(max(all_dist)) + 1
-#        tmp = tmp / binwidth
-#        nbins = int(round(tmp, 0) + 1)
-#
-#        num = 0.0
-#        opdata = [0.0]
-#        for i in range(nbins - 1):
-#            num += binwidth
-#            opdata.append(round(num, 2))
-#        return nbins, npairs_all, npairs_het, npairs_homo, all_dist, het_dist, homo_dist, opdata
-#
-#
-#    def Dipole_filter_algo(self, no_of_atoms, all_mu):
-#        "Use dipole moment to detect duplicated (chiral) structures"
-#        half = int(len(all_mu) / 2)
-#        first_half = all_mu[:half]
-#        first_half = np.array(first_half)
-#        #####################################
-#        # Checek breathing vibrational mode #
-#        #####################################
-#        X = np.array(list(range(1, 201)))
-#        X = np.reshape(X, (-1, 1))
-#        Y = np.reshape(all_mu, (-1, 1))
-#        model = LinearRegression()
-#        model = model.fit(X, Y)
-#        breathing_check = model.score(X, Y)
-#
-#        ###################################################
-#        # Check the config whether all of them are unique #
-#        ###################################################
-#        all_unique_check = abs(all_mu[0] - all_mu[-1])
-#
-#        return breathing_check, all_unique_check

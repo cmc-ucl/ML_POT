@@ -1,15 +1,10 @@
 """ """
 
-import os
 import sys
-import random
+import shutil
 from colored import fg, bg, attr
-import pandas as pd
-from tqdm import tqdm
 import GULP
 
-import pandas as pd
-import numpy as np
 
 
 
@@ -36,8 +31,9 @@ _vib = "-".join(vib)
 
 wd_name = f"GAP_{_vib}_{step}_{rank_from}-{rank_to}_{cutoff}_{sparse}"
 
+columns = shutil.get_terminal_size().columns
 print()
-print(f"{fg(15)} {bg(5)} Visualisation {attr(0)}")
+print(f"{fg(15)} {bg(124)} Visualisation {attr(0)}".center(columns))
 
 binwidth = 0.05
 sig2 = 0.005
@@ -49,5 +45,6 @@ df_dimer, x_axis = GULP.DIMER_GAP_CALC(FIT_path)
 all_het_dist, all_homo_dist = GULP.DIST_BIN_CALC(wd_path, FIT_path, Train_xyz_path, binwidth, sig2)
 GULP.PLOT_DIMER(df_dimer, wd_name, FIT_path, x_axis, all_het_dist, all_homo_dist)
 
+print(f"{fg(15)} {bg(124)} The plot (./{wd_name}/plot.html) is saved -- Good luck! {attr(0)}".center(columns))
 
 
