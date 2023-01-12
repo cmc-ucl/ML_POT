@@ -10,7 +10,8 @@ version 1.4.2
 ✅ Dec 2022: v1.4.0 prep: degeracy filter<br>
 ✅ Dec 2022: v1.4.1 prep: symmetric (duplicate) configuration filter<br>
 ✅ Dec 2022: v1.4.2 prep: extremely short interatomic dist filter [degeneracyFilter branch]<br>
-<<<<<<< HEAD
+
+✅ Jan 2022: v2.0.0 Highly modulised scripts (version 2)
 
 =======
 * * *
