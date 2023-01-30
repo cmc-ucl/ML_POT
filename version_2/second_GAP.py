@@ -14,8 +14,10 @@ rank_to = int(arg[4])
 cutoff = float(arg[5])
 sparse = int(arg[6])
 dup_filter = arg[7]
-if len(arg) == 9:
-    DEBUG = arg[8]
+short_filter = arg[8]
+energy_filter = arg[9]
+if len(arg) == 11:
+    DEBUG = arg[10]
 else:
     DEBUG = "n"
 

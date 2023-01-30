@@ -86,11 +86,10 @@ class GULP:
                 if len(str(label)) == 1:
                     label = "0" + label
 
-
             #if len(label) < Max_len:
             #    print("0"*(Max_len-len(label) + label)
 
-            rename = "{label}.xyz"
+            rename = f"{label}.xyz"
             old = os.path.join(path, xyz)
             new = os.path.join(path, rename)
             os.rename(old, new)
@@ -128,7 +127,7 @@ class GULP:
             print(carteigVec)
 
 
-    def CONVERT_XYZ_TO_GULP(self, xyz_file, mod_xyz, DEBUG="n"):
+    def CONVERT_XYZ_TO_GULP(self, xyz_file, mod_xyz, short_filter, DEBUG):
         """ """
         if mod_xyz == 0:
             with open(xyz_file, "r") as coord:
@@ -136,7 +135,7 @@ class GULP:
                 core_write, shel_write, coord_only, no_of_atoms = self.SUB_CONVERT_XYZ_TO_GULP(lines, DEBUG="n")
                 dest = xyz_file.split("/")[-1]
                 dest = dest.split(".")[0]
-            return core_write, shel_write, coord_only, dest, no_of_atoms
+            return core_write, shel_write, dest, no_of_atoms
 
         elif xyz_file == 0:
             core = []
@@ -144,13 +143,22 @@ class GULP:
             coord_only_ = []
             DEST = []
             for dest, lines in tqdm(mod_xyz.items(), desc="Convert [xyz] to the [gulp] input:"):
-                os.mkdir(dest)
                 core_write, shel_write, coord_only, no_of_atoms = self.SUB_CONVERT_XYZ_TO_GULP(lines, DEBUG="n")
+
+                if short_filter == "y":
+                    condi = self.SHORT_FILTER(coord_only, no_of_atoms)
+                    if condi == True:
+                        with open("filtered_by_DIST.txt", 'a') as f:
+                            f.write(f"{dest}\n{coord_only}\n\n")
+                        continue
+                    else: pass
+                else: pass
+
+                os.mkdir(dest)
                 core.append([core_write])
                 shel.append([shel_write])
-                coord_only_.append([coord_only])
                 DEST.append(dest)
-            return core, shel, coord_only_, DEST, no_of_atoms
+            return core, shel, DEST, no_of_atoms
 
     def SUB_CONVERT_XYZ_TO_GULP(self, lines, DEBUG="n"):
         anion_candi = ["N", "O", "F", "S", "Cl", "Se", "Br", "Te", "I", "Po", "At"]
@@ -235,8 +243,7 @@ class GULP:
                 lines = f.readlines()
                 for i in lines:
                     print(i.strip())
-        else:
-            pass
+        else: pass
         return None
 
     def RUN_GULP(self, loc_gulp_placed, DEBUG="n"):
@@ -334,37 +341,35 @@ class GULP:
 
         return eigvec_array, freq_line_no, freq_eigval
 
-    def GREP_ATOMIC_FORCE(self, no_of_atoms, dest, SP, DEBUG="n"):
+    def GREP_ATOMIC_FORCE(self, no_of_atoms, dest, DEBUG="n"):
         """ Get atomic forces from the 'drv' file """
         marker = []
         forces = []
-        if (SP == "y" and os.path.isdir(dest)):
-            drv_file = [os.path.join(dest, x) for x in os.listdir(dest) if "drv" in x][0]
-            #if drv_file in os.listdir(dest):
-            with open(drv_file, "r") as f:
-                lines = f.readlines()
-            for numi, i in enumerate(lines):
-                if "gradients cartesian eV/Ang" in i:
-                    marker.append(numi + 1)
-                    marker.append(numi + no_of_atoms + 1)
+        #if (SP == "y" and os.path.isdir(dest)):
+        drv_file = [os.path.join(dest, x) for x in os.listdir(dest) if "drv" in x][0]
+        with open(drv_file, "r") as f:
+            lines = f.readlines()
+        for numi, i in enumerate(lines):
+            if "gradients cartesian eV/Ang" in i:
+                marker.append(numi + 1)
+                marker.append(numi + no_of_atoms + 1)
 
-            for numj, j in enumerate(lines):
-                if numj in range(marker[0], marker[1]):
-                    force = [float(x) for x in j.split()[1:]]
-                    forces.append(force)
+        for numj, j in enumerate(lines):
+            if numj in range(marker[0], marker[1]):
+                force = [float(x) for x in j.split()[1:]]
+                forces.append(force)
 
-            force_gulp = np.asarray(forces) * -1
+        force_gulp = np.asarray(forces) * -1
 
-            if DEBUG == "debug":
-                print("Atomic forces:")
-                print(force_gulp)
-            else: pass
-            return force_gulp
-        else: pass
+        if DEBUG == "debug":
+            print("Atomic forces:")
+            print(force_gulp)
+        #else: pass
+        return force_gulp
+        #else: pass
+        #return None
 
-        return None
-
-    def DUP_FILTER(self, dest, eigvec_array, freq_eigval, no_of_atoms, hashtable_e, degen, sym, DEBUG):
+    def DUP_FILTER(self, All_dirs, dest, eigvec_array, freq_eigval, no_of_atoms, hashtable_e, degen, sym, DEBUG):
         if len(self.EIGVEC) != 1:
             if (degen == 1 and sym == 0):
                 freq_eigval = [int(float(x)*1000)/1000 for x in freq_eigval]  # up to three decimal places
@@ -376,11 +381,14 @@ class GULP:
                         if i == j:
                             dup_freq_eigval_index.append(numj+1)
                     dup_indicies.append(dup_freq_eigval_index)  # group of degenerate
-
+                for i in dup_indicies:
+                    i = [str(x) for x in i]
+                    i = ' '.join(i[1:])
+                    with open("filtered_by_DEGEN.txt", 'a') as f:
+                        f.write(f"{str(i)}\n")
                 eigval_inquire = [int(x) for x in self.EIGVEC]
                 dup_indicies_ordered = []
                 EIGVAL_NEW = []
-                c2 = 0
                 for i in dup_indicies:
                     c = 0
                     for j in eigval_inquire:
@@ -402,48 +410,56 @@ class GULP:
                 EIGVEC_NEW = np.reshape(EIGVEC_NEW, (len(EIGVAL_NEW)+1, no_of_atoms, 3))
                 EIGVEC_NEW = EIGVEC_NEW[1:, :, :]
                 return EIGVAL_NEW, EIGVEC_NEW
+        else:
+            return None
 
+        target_dirs = []
         if (degen == 0 and sym == 1):
-            lambda_energy = pd.DataFrame(hashtable_e, columns=["eigval", "lambda", 'E'])
-            lambda_energy = lambda_energy.set_index(["eigval"])
+            lambda_energy = pd.DataFrame(hashtable_e, columns=["rank", "mode", "lambda", 'E'])
+            lambda_energy = lambda_energy.set_index(["mode"])
             index_list = list(set(lambda_energy.index.values.tolist()))
             index_list = sorted(index_list, key=int)
-
+            lambda_energy.to_csv('test.csv')
             min_lam = {}
             max_lam = {}
             for i in index_list:
                 df = lambda_energy.loc[i]
+                rank = list(set(df['rank'].tolist()))[0]
                 head = df.head(1)['E'].tolist()
                 tail = df.tail(1)['E'].tolist()
+                max_lam[f"{rank}/{i}"] = head[0]
+                min_lam[f"{rank}/{i}"] = tail[0]
 
-                max_lam[i] = head[0]
-                min_lam[i] = tail[0]
-                symmetric = []
+            symmetric = []
             for max_key, ma in max_lam.items():
                 for min_key, mi in min_lam.items():
                     if max_key == min_key:
                         if abs(float(ma) - float(mi)) < 1:
                             symmetric.append(f"{str(max_key)}")
+
             for i in symmetric:
-                os.remove(os.path.join(i, "ext_movie.xyz"))
+                with open("filtered_by_SYM.txt", 'a') as f:
+                    f.write(f"{i}\n")
                 target = os.path.join(os.getcwd(), i)
                 target_contents = [x for x in os.listdir(target) if os.path.isdir(os.path.join(target, x))]
                 target_contents = sorted(target_contents, key = lambda x: int(x.split('_')[1]))
                 target_contents = target_contents[int(len(target_contents)/2):]
                 target_contents = [os.path.join(i, x) for x in target_contents]
+                target_dirs.append(target_contents)
 
-                for j in target_contents:
-                    raw = self.OPEN_GULP_OUTPUT(j, DEBUG)
-                    IP_energy = self.GREP_IP_ENERGY(raw, DEBUG)
-                    total_energy = self.GREP_TOTAL_ENERGY(raw, DEBUG)
-                    eigvec_array, freq_line_no, freq_eigval = self.GREP_FREQ(raw, no_of_atoms, DEBUG)
-                    force_gulp = self.GREP_ATOMIC_FORCE(no_of_atoms, j, "y", DEBUG)
-                    self.PREP_EXTENDED_XYZ(j, no_of_atoms, eigvec_array, force_gulp, IP_energy)
+            target_dirs = [x for sub in target_dirs for x in sub]
+            a = [x for x in All_dirs if x not in target_dirs]
+            for j in a:
+                raw = self.OPEN_GULP_OUTPUT(j, DEBUG)
+                IP_energy = self.GREP_IP_ENERGY(raw, DEBUG)
+                total_energy = self.GREP_TOTAL_ENERGY(raw, DEBUG)
+                eigvec_array, freq_line_no, freq_eigval = self.GREP_FREQ(raw, no_of_atoms, DEBUG)
+                force_gulp = self.GREP_ATOMIC_FORCE(no_of_atoms, j, DEBUG)
+                self.PREP_EXTENDED_XYZ(j, no_of_atoms, eigvec_array, force_gulp, IP_energy)
+            return #target_dirs
 
-        return None
 
-
-    def MODIFY_XYZ(self, path, gulp_xyz, eigval, eigvec, no_of_atoms, total_energy, DEBUG="n"):
+    def MODIFY_XYZ(self, path, gulp_xyz, eigval, eigvec, no_of_atoms, total_energy, DEBUG):
         """Preparing xyz configs for training dataset: optimised xyz coord+(eigvec*lambda)"""
         with open(gulp_xyz, "r") as f:
             lines = f.readlines()[2:]
@@ -460,7 +476,7 @@ class GULP:
                 print(eigvec[int(i)-1])
             else: pass
 
-            wd = str(i)
+            wd = os.path.join(gulp_xyz.split('/')[-2], str(i))
             try:
                 os.mkdir(wd)
             except FileExistsError:
@@ -475,8 +491,7 @@ class GULP:
                     stack.insert(0, [str(no_of_atoms)])
                     stack.insert(1, [total_energy])
                     stack = ["\t\t".join(x)+"\n" for x in stack]
-                    label = os.path.join(wd,f"mod_{str(j)}")
-
+                    label = os.path.join(wd, f"mod_{str(j)}")
                     mod_xyz[label] = stack
 
         if DEBUG == "debug":
@@ -506,11 +521,10 @@ class GULP:
         if DEBUG == "debug":
             print("\nDebugging mode on: MODIFY_XYZ")
         else: pass
-
-        count = len(list(range(-1000, 1000+self.STEP, self.STEP)))*len(eigval)
         return mod_xyz
 
     def DIST_CALC(self, coord, no_of_atoms):
+        """Calculate all pairwise interatomic distance"""
         all_dist = []
         for numi, i in enumerate(range(no_of_atoms)):
             for numj, j in enumerate(range(i+1, no_of_atoms)):
@@ -518,25 +532,14 @@ class GULP:
                 all_dist.append(distance)
         return all_dist
 
-    def SHORT_DIST_FILTER(self, final_full_path, no_of_atoms): 
-        """ """
-        xyz_name = final_full_path.split("/")[-1] + "_eig.xyz"
-        loc_gulp_xyz = os.path.join(final_full_path, xyz_name)
-        with open(loc_gulp_xyz, "r") as f:
-            lines = f.readlines()
-        no_of_atoms = int(lines[0])
-        total_energy = lines[1]
-
-        lines = lines[2:]
-        array = [x.split() for x in lines]
-        array = np.asarray(array)
-        coord = array[:, 1:].astype(float)
-
+    def SHORT_FILTER(self, coord, no_of_atoms):
+        DIST = 0.8
         all_dist = self.DIST_CALC(coord, no_of_atoms)
-        if any(item < 0.8 for item in all_dist):
+        if any(item < DIST for item in all_dist):
             return True
         else:
             return False
+
 
     def PREP_EXTENDED_XYZ(self, final_full_path, no_of_atoms, eigvec_array, forces, energy):
         """ """
@@ -552,22 +555,12 @@ class GULP:
         array = np.asarray(array)
         coord = array[:, 1:].astype(float)
 
-        ######################################
-        ## Short interatomic distance filter #
-        ######################################
-        #all_dist = self.DIST_CALC(coord, no_of_atoms)
-        #if any(item < 0.8 for item in all_dist):
-        #    print(final_full_path, all_dist)
-        #    continue
-        #    #return None
-        #else:
         atom = array[:, 0].astype(str)
         atom = atom.reshape(-1, 1)
         atom_coord_and_force = np.concatenate([atom, coord, forces], axis=1)
         atom_coord_and_force = atom_coord_and_force.tolist()
 
         ext_xyz = os.path.join(final_full_path, "ext_gulp.xyz")
-
         with open(ext_xyz, "a") as f:
             f.write(str(no_of_atoms) + "\n")
             f.write('Lattice="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" ')
@@ -578,7 +571,7 @@ class GULP:
                 new = "    ".join(new) + "\n"
                 f.write(new)
 
-        parent_wd = final_full_path.split('/')[0]
+        parent_wd = os.path.join(final_full_path.split('/')[0], final_full_path.split('/')[1])
         all_ext_movie = os.path.join(parent_wd, "ext_movie.xyz")
         with open(all_ext_movie, "a") as f:
             f.write(str(no_of_atoms) + "\n")
@@ -596,11 +589,13 @@ class GULP:
         F_atom_energy = 0.000  # -5.735796
 
         cwd = os.getcwd()
-        lists = [x for x in os.listdir(cwd) if os.path.isdir(x) and '001' not in x]
-        lists = sorted(lists, key=int)
+        lists = [x for x in os.listdir(cwd) if os.path.isdir(x)]
+        lists = [[os.path.join(x, y) for y in os.listdir(x)] for x in lists]
+        lists = [x for sub in lists for x in sub if os.path.isdir(x)]
+        lists = sorted(lists, key= lambda x: (int(x.split('/')[0]), int(x.split('/')[1])))
+
         os.mkdir('FIT')
         training_set = "FIT/Training_set.xyz"
-
         with open(training_set, 'wb') as outf:
             for i in tqdm(lists, desc="Generating Training_set.xyz:"):
                 ext_path = os.path.join(i, "ext_movie.xyz")
@@ -613,16 +608,15 @@ class GULP:
         # Add single atoms
         with open(training_set, "a") as f:
             f.write("1\n")
-            f.write(f'Lattice="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" \
-Properties=species:S:1:pos:R:3:forces:R:3 energy=0.000000000000 \
-free_energy={Al_atom_energy} pbc="F F F"\n')
+            f.write('Lattice="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" ')
+            f.write('Properties=species:S:1:pos:R:3:forces:R:3 energy=0.000000000000 ')
+            f.write(f'free_energy={Al_atom_energy} pbc="F F F"\n')
             f.write("Al 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000\n")
             f.write("1\n")
-            f.write(f'Lattice="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" \
-Properties=species:S:1:pos:R:3:forces:R:3 energy=0.000000000000 \
-free_energy={F_atom_energy} pbc="F F F"\n')
+            f.write('Lattice="0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0" ')
+            f.write('Properties=species:S:1:pos:R:3:forces:R:3 energy=0.000000000000 ')
+            f.write(f'free_energy={F_atom_energy} pbc="F F F"\n')
             f.write("F 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000\n")
-
         return None
 
     def GAP_2b_fit(self, wd_name, cutoff, sparse):
@@ -641,11 +635,11 @@ cutoff=%s \
 covariance_type=ard_se delta=0.5 \
 theta_uniform=1.0 \
 sparse_method=uniform \
-n_sparse=%s}"
-% (wd_name, wd_name, cutoff, sparse)
-)
+n_sparse=%s}" % (wd_name, wd_name, cutoff, sparse))
+
         columns = shutil.get_terminal_size().columns
         print("\nCalculate Training data using the trained GAP IP".center(columns))
+
         # Compute Training_set.xyz with the trained GAP pot
         os.system(
             "/scratch/home/uccatka/virtualEnv/bin/quip E=T F=T \
@@ -662,6 +656,7 @@ n_sparse=%s}"
         | grep AT | sed 's/AT//' > %s/FIT/quip_validate.xyz"
             % (wd_name, wd_name, wd_name)
         )
+        return None
 
     def VIS_ESSENTIAL(self, wd_name):
         cwd = os.getcwd()
@@ -669,7 +664,6 @@ n_sparse=%s}"
         FIT_path = os.path.join(wd_path, "FIT")
         Train_xyz_path = os.path.join(FIT_path, "Training_set.xyz")
         Valid_xyz_path = os.path.join(FIT_path, "Valid_set.xyz")
-
         return wd_path, FIT_path, Train_xyz_path
 
     def DIMER_GAP_CALC(self, FIT_path):
@@ -737,7 +731,6 @@ n_sparse=%s}"
         df_dimer = df.join(df_AlF_scaled)
         df_dimer.drop(columns=["x2", "x3"], inplace=True)
         del dff, dfff, df_AlF_scaled
-
         return df_dimer, x_axis
 
     def DIST_BIN_CALC(self, wd_path, FIT_path, Train_xyz_path, binwidth, sig2):
@@ -782,20 +775,20 @@ n_sparse=%s}"
         all_het_dist = []
         all_homo_dist = []
 
-        dist_df_all = pd.DataFrame()
-        dist_df_het = pd.DataFrame()
-        dist_df_homo = pd.DataFrame()
+        #dist_df_all = pd.DataFrame()
+        #dist_df_het = pd.DataFrame()
+        #dist_df_homo = pd.DataFrame()
         for numi, i in enumerate(coord):
             (nbins, npairs_all, npairs_het, npairs_homo, all_dist, het_dist, homo_dist, opdata
             ) = self.RDF(no_of_atoms, i, ID[numi], binwidth)
             all_het_dist += het_dist
             all_homo_dist += homo_dist
 
-            dist_df_all[numi] = all_dist
-            dist_df_het[f'{numi}_het'] = het_dist
-            dist_df_homo[f'{numi}_homo'] = homo_dist
+            #dist_df_all[numi] = all_dist
+            #dist_df_het[f'{numi}_het'] = het_dist
+            #dist_df_homo[f'{numi}_homo'] = homo_dist
 
-        dist_het_df = pd.concat([dist_df_het, dist_df_homo], axis=1)
+        #dist_het_df = pd.concat([dist_df_het, dist_df_homo], axis=1)
         #p = os.path.join(wd_path, "all_bin.csv")
         #dist_het_df.to_csv(p)
         return all_het_dist, all_homo_dist
@@ -803,7 +796,6 @@ n_sparse=%s}"
     def PLOT_DIMER(self, df, wd_name, FIT_path, x_axis, all_het_dist, all_homo_dist):
         # E vs r
         fig = go.FigureWidget()
-
         # Generated Born-Mayer potential
         def BM(x):
             return 3760 * np.exp(-x / 0.222)
@@ -827,6 +819,9 @@ n_sparse=%s}"
                 return -0.361 * x**3 + 3.2362 * x**2 - 9.6271 * x + 9.4816
             elif x.all() >= 3.031:
                 return -15.83 / x**6
+
+        def Coulomb(x, cat_q, an_q):
+            return 1 / (cat_q*an_q) * 14.3996439067522
 
         # Born-Mayer Al-F potential
         BM_color = "rgb(10, 120, 24)"
@@ -863,13 +858,22 @@ n_sparse=%s}"
             line=dict(shape="linear", color=BM_color),
         )  # , secondary_y=False,)
 
+        # Al-Al
+        trace4 = fig.add_scatter(
+            x=df["r"],
+            y=df["Al-Al(GAP)"],
+            mode="lines",
+            name="Al-Al GAP potential",
+            line=dict(shape="linear", color="blue"),
+        )  # , secondary_y=False,)
+
         ## Al-F (same results but the data points' x-axis is match with F-F scaled)
         # trace_ = fig.add_scatter(x=df['r_scaled'], y=df['Al-F(GAP)_scaled'],
         #mode='lines', name='Al-F GAP potential_2',\
         #line=dict(shape='linear', color=BM_color))
 
         # F-F original
-        trace4 = fig.add_scatter(
+        trace5 = fig.add_scatter(
             x=df["r"],
             y=df["F-F(GAP)"],
             mode="lines",
@@ -880,19 +884,19 @@ n_sparse=%s}"
         # F-F scaled
         scaling = df["r"].tolist()
         scaling = [round(x / np.sqrt(3), 3) for x in scaling]
-        trace5 = fig.add_scatter(
+        trace6 = fig.add_scatter(
             x=df["r_scaled"],
             y=df["F-F(GAP)"],
             mode="lines",
             name="F-F GAP potential_scaling",
             visible="legendonly",
         )
-        df.drop(columns=["Al-F(BM)", "Al-Al(GAP)"], inplace=True)
+        #df.drop(columns=["Al-F(BM)", "Al-Al(GAP)"], inplace=True)
 
         # Al-F + F-F
         df["GAP_sum"] = df["F-F(GAP)"] + df["Al-F(GAP)_scaled"]
         df.to_csv("df_gap_sum.csv")
-        trace6 = fig.add_scatter(
+        trace7 = fig.add_scatter(
             x=df["r_scaled"],
             y=df["GAP_sum"],
             mode="lines",
@@ -911,31 +915,35 @@ n_sparse=%s}"
         from_point_a = list(df["r"]).index([x for x in df["r"] if 2.73154 - 0.5 < x < 2.73154 + 0.5][0])
 
         to_point_a = list(df["r"]).index([x for x in df["r"] if x < 2.73154 + 0.5][-1])
-        MSE_an = round(
-            mean_squared_error(
-                df["F-F(GAP)"][from_point_a:to_point_a],
-                buck4(x_axis)[from_point_a:to_point_a],
-                squared=False),  4)
+        try: 
+            MSE_an = round(
+                mean_squared_error(
+                    df["F-F(GAP)"][from_point_a:to_point_a],
+                    buck4(x_axis)[from_point_a:to_point_a],
+                    squared=False),  4)
+        except ValueError:
+            MSE_an = "F-F is removed" 
+            pass
         with open(f"{wd_name}/MSE.txt", "w") as f:
             f.write(str(MSE_catan))
             f.write("\n")
             f.write(str(MSE_an))
         columns = shutil.get_terminal_size().columns
-        print("**************************".center(columns)) 
+        print("**************************".center(columns))
         print(f"RMSE(cat-an): {MSE_catan}".center(columns))
         print(f"RMSE(an-an): {MSE_an}".center(columns))
         print("**************************".center(columns))
         print("\n")
         # Histogram above the potential figure (uppger panel)
 
-        trace7 = fig.add_histogram(
+        trace8 = fig.add_histogram(
             x=all_het_dist,
             xbins=dict(start=0, end=6, size=0.005),
             marker_color=BM_color,
             name="Number of hetero species interatomic distance",
             yaxis="y2")
 
-        trace8 = fig.add_histogram(
+        trace9 = fig.add_histogram(
             x=all_homo_dist,
             xbins=dict(start=0, end=6, size=0.005),
             marker_color="firebrick",
@@ -1020,12 +1028,13 @@ n_sparse=%s}"
                 npairs_all += 1
                 distance = np.linalg.norm(coord[i, :] - coord[j, :])
                 all_dist.append(distance)
-
+                # Interatomic distance between hetero species
                 if ID[i] != ID[j] and (str(i)+str(j) not in het_dup_filter):
                     npairs_het += 1
                     distance = np.round(np.linalg.norm(coord[i, :] - coord[j, :]), 9)
                     het_dist.append(distance)
                     het_dup_filter.append(str(i)+str(j))
+                # Interatomic distance between homo species
                 if ID[i] == ID[j] and i != j and (str(j)+str(i) not in homo_dup_filter):
                     npairs_homo += 1
                     distance = np.round(np.linalg.norm(coord[i,:] - coord[j, :]), 9)
