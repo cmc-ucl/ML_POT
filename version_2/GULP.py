@@ -1,5 +1,6 @@
 """ Version 2.0.0 """
 
+# essential libraries
 import os
 import sys
 import numpy as np
@@ -9,14 +10,17 @@ import subprocess
 import collections
 import pandas as pd
 
+import Structure_Analysis
+
+# for visual effects
 from tqdm import tqdm
 from colored import fg, bg, attr
 
 from sklearn.metrics import mean_squared_error
-
+# for calculations
 from ase import Atoms
 from quippy.potential import Potential
-
+# for plots
 import plotly.graph_objects as go
 
 class GULP:
@@ -160,16 +164,15 @@ class GULP:
                 DEST.append(dest)
             return core, shel, DEST, no_of_atoms
 
+
     def SUB_CONVERT_XYZ_TO_GULP(self, lines, DEBUG="n"):
         anion_candi = ["N", "O", "F", "S", "Cl", "Se", "Br", "Te", "I", "Po", "At"]
         no_of_atoms = int(lines[0])
         lines = lines[2:]
-
         coord = [x.split() for x in lines]
         coord = np.asarray(coord)
         coord_only = coord[:, 1:].astype(float)
         ID = coord[:, 0]
-
         anion_index = [np.where(coord == x) for x in ID if x in anion_candi][0][0]
         cation_index = [np.where(coord == x) for x in ID if x not in anion_candi][0][0]
 
@@ -210,7 +213,7 @@ class GULP:
                 f.write(f"{keywords}\n")
                 f.write("cartesian\n")
                 f.write(geometry)
-                f.write("library /home/uccatka/auto/for_GAP/AlF_noC_RM\n")
+                f.write("library /home/uccatka/auto/for_GAP/lib/AlF_noC_RM\n")
                 f.write("xtol opt 6.000\n")
                 f.write("ftol opt 5.000\n")
                 f.write("gtol opt 8.000\n")
@@ -225,7 +228,7 @@ class GULP:
             with open(gulp_input, "w") as f:
                 f.write(f"{keywords}\ncartesian\n")
                 f.write(geometry)
-                f.write("library /home/uccatka/auto/for_GAP/AlF_BM_RM\n")
+                f.write("library /home/uccatka/auto/for_GAP/lib/AlF_BM_RM\n")
                 f.write("xtol opt 6.000\n")
                 f.write("ftol opt 5.000\n")
                 f.write("gtol opt 8.000\n")
@@ -308,7 +311,15 @@ class GULP:
                 else: pass
 
             elif "Vibrational properties (for cluster)" in i:
-                freq_to.append(numi - 6)
+                for detect in range(7):
+                    if 1 < len(lines[numi-detect]) < 70:
+                        if "Vibrational" not in lines[numi-detect]: 
+                            if len(lines[numi-detect]) > 10:
+                                #print(lines[numi-detect])
+                                #print(numi-detect)
+                                freq_to.append(numi-detect)
+                                break
+                #freq_to.append(numi - 6)
                 if DEBUG == "debug":
                     print("\nDebugging mode on: GREP_FREQ")
                     print("\nVibrational properties (for cluster):")
@@ -317,22 +328,36 @@ class GULP:
             else: pass
         freq_to = freq_to[1:]
 
-
         # Retrieve eigenvectors
         arr_1 = []
+        arr_temp = []
         for numj, j in enumerate(freq_from):
+            arr_temp_2 = []
             for numk, k in enumerate(lines):
                 if freq_from[numj] <= numk <= freq_to[numj]:
                     a = np.array([float(x) for x in k.split()[2:]])
                     arr_1.append(a)
-        arr_1 = np.stack(arr_1, axis=1)
-        arr_2 = []
-        split_marker = int(arr_1.shape[1] / len(freq))
-        for numi, i in enumerate(arr_1):
-            row = np.array(np.split(i, split_marker)).reshape(-1, no_of_atoms, 3)
-            arr_2.append(row)
-        arr_2 = np.stack(arr_2, axis=1)
-        eigvec_array = arr_2.reshape(-1, no_of_atoms, 3)
+                    arr_temp_2.append(a)
+            arr_temp.append(arr_temp_2)
+        #for i in arr_1:
+        #    print(i)
+        arr_temp_3 = []
+        for i in arr_temp:
+            arr_temp = np.stack(i, axis=1)
+            for numi, i in enumerate(arr_temp):
+                row = i.reshape(-1, no_of_atoms, 3)
+                arr_temp_3.append(row)
+        arr_temp_3 = np.stack(arr_temp_3, axis=1)
+        eigvec_array = arr_temp_3.reshape(-1, no_of_atoms, 3)
+
+        #arr_1 = np.stack(arr_1, axis=1)
+        #arr_2 = []
+        #split_marker = int(arr_1.shape[1] / len(freq))
+        #for numi, i in enumerate(arr_1):
+        #    row = np.array(np.split(i, split_marker)).reshape(-1, no_of_atoms, 3)
+        #    arr_2.append(row)
+        #arr_2 = np.stack(arr_2, axis=1)
+        #eigvec_array = arr_2.reshape(-1, no_of_atoms, 3)
         if DEBUG == "debug":
             print("\nDebugging mode on: GREP_FREQ:")
             print("\nFrequency eigenvectors:")
@@ -364,10 +389,8 @@ class GULP:
         if DEBUG == "debug":
             print("Atomic forces:")
             print(force_gulp)
-        #else: pass
+        else: pass
         return force_gulp
-        #else: pass
-        #return None
 
     def DUP_FILTER(self, All_dirs, dest, eigvec_array, freq_eigval, no_of_atoms, hashtable_e, degen, sym, DEBUG):
         if len(self.EIGVEC) != 1:
@@ -419,7 +442,7 @@ class GULP:
             lambda_energy = lambda_energy.set_index(["mode"])
             index_list = list(set(lambda_energy.index.values.tolist()))
             index_list = sorted(index_list, key=int)
-            lambda_energy.to_csv('test.csv')
+            #lambda_energy.to_csv('test.csv')
             min_lam = {}
             max_lam = {}
             for i in index_list:
@@ -459,8 +482,112 @@ class GULP:
             return #target_dirs
 
 
-    def MODIFY_XYZ(self, path, gulp_xyz, eigval, eigvec, no_of_atoms, total_energy, DEBUG):
-        """Preparing xyz configs for training dataset: optimised xyz coord+(eigvec*lambda)"""
+    def DIST_CALC_DISCRETE(self, no_of_atoms, coord, ID):
+        all_dist = []
+        het_dist = []
+        homo_dist = []
+
+        all_dup_filter = []
+        het_dup_filter = []
+        homo_dup_filter = []
+
+        all_dist = []
+        for numi, i in enumerate(range(no_of_atoms)):
+            for numj, j in enumerate(range(i+1, no_of_atoms)):
+                distance = np.linalg.norm(coord[i, :] - coord[j, :])
+                all_dist.append(distance)
+                # Interatomic distance between hetero species
+                if ID[i] != ID[j] and (str(i)+str(j) not in het_dup_filter):
+                    distance = np.round(np.linalg.norm(coord[i, :] - coord[j, :]), 9)
+                    het_dist.append(distance)
+                    het_dup_filter.append(str(i)+str(j))
+                # Interatomic distance between homo species
+                if ID[i] == ID[j] and i != j and (str(j)+str(i) not in homo_dup_filter):
+                    distance = np.round(np.linalg.norm(coord[i,:] - coord[j, :]), 9)
+                    homo_dist.append(distance)
+                    homo_dup_filter.append(str(i)+str(j))
+        return  all_dist, het_dist, homo_dist
+
+    def RANDOM_MOVE_XYZ(self, path, gulp_xyz, no_of_atoms, energy, DEBUG):
+        """ Preparing xyz configs for training dataset:
+            random displacement on each atom of optimised xyz coord"""
+        STRUC_ANAL = Structure_Analysis.structure_shape(gulp_xyz)
+        # randomly select one atom and randomly displace x, y, z coordinate ####################################
+        mod_xyz = {}
+        for i in range(1):
+            wd = os.path.join(gulp_xyz.split('/')[-2], str(i))
+            os.mkdir(wd)
+            for j in tqdm(range(-1000, 1000+self.STEP, self.STEP), desc="Randomly displace atoms"):
+                if j != 0:
+                    no_of_atoms, ID, coord_only = STRUC_ANAL.load_xyz()
+                    com = STRUC_ANAL.CenterofMass(no_of_atoms, coord_only)
+                    transformed = STRUC_ANAL.Transformation(no_of_atoms, coord_only, com)
+                    no_of_row = np.shape(transformed)[0]
+                    rand_select_atom = np.random.choice(no_of_row, replace=False) # randomly select an atom
+                    rand_select_atom_coord = transformed[rand_select_atom, :]
+                    deg_displace = np.random.uniform(-1, 1, (1,3)) # generate random cart. coord. in between 0 and 1
+                    rand_displace = np.add(rand_select_atom_coord, deg_displace, out=None)
+                    new_coord = transformed
+                    new_coord[rand_select_atom, :] = rand_displace
+                    #all_dist = self.DIST_CALC(new_coord, no_of_atoms)
+                    all_dist, het_dist, homo_dist = self.DIST_CALC_DISCRETE(no_of_atoms, new_coord, ID) 
+
+                    het_SHORT = 0.9
+                    het_LONG = 2.5
+                    homo_SHORT = 2.0
+                    homo_LONG = 3.5
+                    #while any(item < DIST for item in all_dist):
+                    #while (any(item < het_SHORT or item > het_LONG for item in het_dist) or \
+                    #    any(item < homo_SHORT or item > homo_LONG for item in homo_dist)):
+                    while any(item < het_SHORT for item in het_dist): # or \
+                        #any(item < homo_SHORT for item in homo_dist)):
+                        no_of_atoms, ID, coord_only = STRUC_ANAL.load_xyz()
+                        com = STRUC_ANAL.CenterofMass(no_of_atoms, coord_only)
+                        transformed = STRUC_ANAL.Transformation(no_of_atoms, coord_only, com)
+
+                        no_of_row = np.shape(transformed)[0]
+                        rand_select_atom = np.random.choice(no_of_row, replace=False) # randomly select an atom
+                        rand_select_atom_coord = transformed[rand_select_atom, :]
+                        deg_displace = np.random.uniform(-1, 1, (1,3)) # generate random cart. coord.
+                        rand_displace = np.add(rand_select_atom_coord, deg_displace)
+                        new_coord = transformed
+                        new_coord[rand_select_atom, :] = rand_displace
+                        #all_dist = self.DIST_CALC(new_coord, no_of_atoms)
+                        all_dist, het_dist, homo_dist = self.DIST_CALC_DISCRETE(no_of_atoms, new_coord, ID)
+                        #print(het_dist)
+                    #print("DONE\n")
+                    stack = np.c_[ID, new_coord]
+                    stack = stack.tolist()
+                    stack.insert(0, [str(no_of_atoms)])
+                    stack.insert(1, [energy])
+                    stack = ["\t\t".join(x) + "\n" for x in stack]
+                    label = os.path.join(wd, f"mod_{str(j)}")
+                    mod_xyz[label] = stack
+                    #########################################################################################################
+
+
+                    # random displacement for all atoms #####################################################################
+                    #for i in range(no_of_atoms):
+                    #    deg_displace = np.random.rand(1,3)
+                    #    transformed[i, :] = np.add(transformed[i, :], deg_displace)
+                    #    new_coord = transformed
+                    #########################################################################################################
+
+        new_coord = np.around(coord_only, 9)
+        stack = np.c_[ID, new_coord]
+        stack = stack.tolist()
+        stack.insert(0, [str(no_of_atoms)])
+        stack.insert(1, [energy])
+        stack = ["\t\t".join(x)+"\n" for x in stack]
+
+        label = os.path.join(wd, "mod_0")
+        mod_xyz[label] = stack
+
+        return mod_xyz 
+
+
+    def MODIFY_XYZ(self, path, gulp_xyz, eigval, eigvec, no_of_atoms, energy, DEBUG):
+        """Preparing xyz configs for training dataset: (optimised xyz coord)+(eigvec*lambda)"""
         with open(gulp_xyz, "r") as f:
             lines = f.readlines()[2:]
             coord = [x.split() for x in lines]
@@ -469,7 +596,7 @@ class GULP:
             ID = array[:, 0].astype(str)
 
         mod_xyz = {}
-        for numi, i in enumerate(eigval):
+        for i in eigval:
             if DEBUG == "debug":
                 print("***")
                 print(i)
@@ -489,7 +616,7 @@ class GULP:
                     stack = np.c_[ID, new_coord]
                     stack = stack.tolist()
                     stack.insert(0, [str(no_of_atoms)])
-                    stack.insert(1, [total_energy])
+                    stack.insert(1, [energy])
                     stack = ["\t\t".join(x)+"\n" for x in stack]
                     label = os.path.join(wd, f"mod_{str(j)}")
                     mod_xyz[label] = stack
@@ -512,7 +639,7 @@ class GULP:
         stack = np.c_[ID, new_coord]
         stack = stack.tolist()
         stack.insert(0, [str(no_of_atoms)])
-        stack.insert(1, [total_energy])
+        stack.insert(1, [energy])
         stack = ["\t\t".join(x)+"\n" for x in stack]
 
         label = os.path.join(wd, "mod_0")
@@ -592,15 +719,25 @@ class GULP:
         lists = [x for x in os.listdir(cwd) if os.path.isdir(x)]
         lists = [[os.path.join(x, y) for y in os.listdir(x)] for x in lists]
         lists = [x for sub in lists for x in sub if os.path.isdir(x)]
-        lists = sorted(lists, key= lambda x: (int(x.split('/')[0]), int(x.split('/')[1])))
+        try:
+            lists = sorted(lists, key= lambda x: (int(x.split('/')[0]), int(x.split('/')[1])))
+        except ValueError:
+            pass
 
+        try:
+            lists = sorted(lists, key=lambda x: (int(x.split('/')[-1])))
+        except ValueError:
+            pass
         os.mkdir('FIT')
         training_set = "FIT/Training_set.xyz"
         with open(training_set, 'wb') as outf:
             for i in tqdm(lists, desc="Generating Training_set.xyz:"):
                 ext_path = os.path.join(i, "ext_movie.xyz")
-                with open(ext_path, 'rb') as readf:
-                    shutil.copyfileobj(readf, outf)
+                if os.path.isfile(ext_path):
+                    with open(ext_path, 'rb') as readf:
+                        shutil.copyfileobj(readf, outf)
+                else: pass
+
 
         with open("FIT/Valid_set.xyz", 'w') as f:
             f.write(' ')
@@ -625,7 +762,7 @@ class GULP:
 energy_parameter_name=energy \
 force_parameter_name=forces \
 do_copy_at_file=F \
-sparse_separate_file=F \
+sparse_separate_file=T \
 gp_file=%s/FIT/GAP.xml \
 at_file=%s/FIT/Training_set.xyz \
 default_sigma={0.008 0.04 0 0} \
@@ -752,12 +889,13 @@ n_sparse=%s}" % (wd_name, wd_name, cutoff, sparse))
             if len(i) <= 10:
                 From.append(numi)
                 To.append(numi)
+
         To.append(len(full_lines))
         To = To[1:-2]
         From = From[:-2]
-
         block = {From[i]: To[i] for i in range(len(From))}
         del From, To
+
         keys_list = list(block.keys())
         random.shuffle(keys_list)
         nkeys = int(1.0 * len(keys_list))
@@ -775,22 +913,11 @@ n_sparse=%s}" % (wd_name, wd_name, cutoff, sparse))
         all_het_dist = []
         all_homo_dist = []
 
-        #dist_df_all = pd.DataFrame()
-        #dist_df_het = pd.DataFrame()
-        #dist_df_homo = pd.DataFrame()
         for numi, i in enumerate(coord):
             (nbins, npairs_all, npairs_het, npairs_homo, all_dist, het_dist, homo_dist, opdata
             ) = self.RDF(no_of_atoms, i, ID[numi], binwidth)
             all_het_dist += het_dist
             all_homo_dist += homo_dist
-
-            #dist_df_all[numi] = all_dist
-            #dist_df_het[f'{numi}_het'] = het_dist
-            #dist_df_homo[f'{numi}_homo'] = homo_dist
-
-        #dist_het_df = pd.concat([dist_df_het, dist_df_homo], axis=1)
-        #p = os.path.join(wd_path, "all_bin.csv")
-        #dist_het_df.to_csv(p)
         return all_het_dist, all_homo_dist
 
     def PLOT_DIMER(self, df, wd_name, FIT_path, x_axis, all_het_dist, all_homo_dist):
@@ -895,7 +1022,7 @@ n_sparse=%s}" % (wd_name, wd_name, cutoff, sparse))
 
         # Al-F + F-F
         df["GAP_sum"] = df["F-F(GAP)"] + df["Al-F(GAP)_scaled"]
-        df.to_csv("df_gap_sum.csv")
+        df.to_csv(f"{wd_name}/df_gap_sum.csv")
         trace7 = fig.add_scatter(
             x=df["r_scaled"],
             y=df["GAP_sum"],
