@@ -3,14 +3,18 @@ import os
 import sys
 import shutil
 import pandas as pd
-import numpy as np
 from tqdm import tqdm
 from colored import fg, bg, attr
 import GULP
 
 '''
 NOTE:
+Instruction: '{eigenvalues}' {step size} {from (IP rank)} {To (IP rank)} {cutoff} {n_sparse} {dup_filter} {short_filter}
+Example:    '7 8 9 10 11 12'      10            1              10           3.0      100         y/n           y/n
+Which should be:  python first_GAP.py '7 8 9 10 11 12' 10 1 10 3.0 100 y y
 
+short_filter: if a configuration has interatomic distance which is less than 0.8 angstrom will be elimitaed
+dup_filter: symmetric structure (oscillate) from a vibrational mode will be eliminated to have unique configurations
 '''
 
 arg = sys.argv
@@ -20,17 +24,21 @@ rank_from = int(arg[3])
 rank_to = int(arg[4])
 cutoff = float(arg[5])
 sparse = int(arg[6])
+
+# filter options ####
 dup_filter = arg[7]
 short_filter = arg[8]
-energy_filter = arg[9]
+#energy_filter = arg[9]
+#####################
+
 if len(arg) == 11:
     DEBUG = arg[10]
 else:
     DEBUG = "n"
 
 # filter by energy
-HIGH = 50.0
-LOW = 0.5
+HIGH = 10.0
+LOW = 1.6
 
 vib = vib.split()
 _vib = "-".join(vib)
@@ -63,6 +71,9 @@ for f in files:
     rank = int(f.split('/')[-1].split('.')[0])
     EIGVALS = {}
     if rank_from <= rank <= rank_to:
+
+        # convert xyz to gulp, then run optimisation. ##########################################
+        # grep IP_energy, Total_energy, vibrational mode (eigval, eigvec), atomic forces
         core_write, shel_write, dest, no_of_atoms = GULP_1.CONVERT_XYZ_TO_GULP(f, 0, short_filter, DEBUG)
         try:
             os.mkdir(dest)
@@ -76,20 +87,26 @@ for f in files:
         total_energy = GULP_1.GREP_TOTAL_ENERGY(raw, DEBUG)
         eigvec_array, freq_line_no, freq_eigval = GULP_1.GREP_FREQ(raw, no_of_atoms, DEBUG)
         force_gulp = GULP_1.GREP_ATOMIC_FORCE(no_of_atoms, dest, DEBUG)
-        if dup_filter == "y" and len(vib) != 1:
-            eigval_new, eigvec_new = GULP_1.DUP_FILTER(None, dest, eigvec_array, freq_eigval, no_of_atoms, None, 1, 0, DEBUG)
-            GULP_2 = GULP.GULP(step, eigval_new, SP="set")
-            first_gulp_xyz = os.path.join(dest, f"{dest}_eig.xyz")
-            mod_xyz = GULP_2.MODIFY_XYZ(dest, first_gulp_xyz, eigval_new, eigvec_array, no_of_atoms, IP_energy, DEBUG)
-        else:
-            GULP_2 = GULP.GULP(step, vib, SP='set')
-            first_gulp_xyz = os.path.join(dest, f"{dest}_eig.xyz")
-            mod_xyz = GULP_2.MODIFY_XYZ(dest, first_gulp_xyz, vib, eigvec_array, no_of_atoms, IP_energy, DEBUG)
+        ########################################################################################
+
+
+        # degeneracy filter and modify xyz ######################
+        #if dup_filter == "y" and len(vib) != 1:
+        #    eigval_new, eigvec_new = GULP_1.DUP_FILTER(None, dest, eigvec_array, freq_eigval, no_of_atoms, None, 1, 0, DEBUG)
+        #    GULP_2 = GULP.GULP(step, eigval_new, SP="set")
+        #    first_gulp_xyz = os.path.join(dest, f"{dest}_eig.xyz")
+        #    mod_xyz = GULP_2.MODIFY_XYZ(dest, first_gulp_xyz, eigval_new, eigvec_array, no_of_atoms, IP_energy, DEBUG)
+        #else:
+        GULP_2 = GULP.GULP(step, vib, SP='set')
+        first_gulp_xyz = os.path.join(dest, f"{dest}_eig.xyz")
+        mod_xyz = GULP_2.RANDOM_MOVE_XYZ(dest, first_gulp_xyz, no_of_atoms, IP_energy, DEBUG)
+        #mod_xyz = GULP_2.MODIFY_XYZ(dest, first_gulp_xyz, vib, eigvec_array, no_of_atoms, IP_energy, DEBUG)
+        #########################################################
 
         core_write, shel_write, dest, no_of_atoms = GULP_2.CONVERT_XYZ_TO_GULP(0, mod_xyz, short_filter, DEBUG)
 
-        hashtable_e_ = []
-        for i in tqdm(range(len(dest)), desc="Preparing vibrational mode strcture data:"):
+        hashtable_e_, atomic_e = [], []
+        for i in tqdm(range(len(dest)), desc="Mod xyz // SP calc // PREP ext xyz:"):
             All_dirs.append(dest[i])
             core = ' '.join(core_write[i])
             output_xyz_path = os.path.join(dest[i], dest[i].split('/')[-1])
@@ -99,14 +116,17 @@ for f in files:
             raw = GULP_2.OPEN_GULP_OUTPUT(dest[i], DEBUG)
             IP_energy = GULP_2.GREP_IP_ENERGY(raw, DEBUG)
 
-            if energy_filter == "y":
-                if LOW < float(IP_energy) < HIGH:
-                    pass
-                else:
-                    with open("filtered_by_ENERGY.txt", 'a') as f:
-                        f.write(f"{dest[i]} {IP_energy}\n")
-                    continue
-            else: pass
+            # ENERGY FILTER #########################################
+            #if energy_filter == "y":
+            #    atomic_e.append(float(IP_energy)/no_of_atoms)
+            #    if LOW < float(IP_energy)/no_of_atoms < HIGH:
+            #        pass
+            #    else:
+            #        with open("filtered_by_ENERGY.txt", 'a') as f:
+            #            f.write(f"{dest[i]} {IP_energy}\n")
+            #        continue
+            #else: pass
+            ######################################################### 
 
             total_energy = GULP_2.GREP_TOTAL_ENERGY(raw, DEBUG)
             eigvec_array, freq_line_no, freq_eigval = GULP_2.GREP_FREQ(raw, no_of_atoms, DEBUG)
@@ -115,23 +135,24 @@ for f in files:
             if dup_filter == "n" or len(vib) == 1:
                 GULP_2.PREP_EXTENDED_XYZ(dest[i], no_of_atoms, eigvec_array, force_gulp, IP_energy) 
             else: pass
-
             marker = dest[i].split('_')
             marker = [x.replace('/mod', '') for x in marker]
             rank = marker[0].split('/')[0]
             mode = marker[0].split('/')[1]
             Lambda = marker[1]
             hashtable_e_.append([rank, mode, Lambda, IP_energy])
+atomic_e = sorted(atomic_e)
 
+# symmetric configuration filter ########################
 if dup_filter == "y" and len(vib) != 1:
-    target_dirs = GULP_2.DUP_FILTER(All_dirs, dest[i], eigvec_new, freq_eigval, no_of_atoms, hashtable_e_, 0, 1, DEBUG)
-
+    #target_dirs = GULP_2.DUP_FILTER(All_dirs, dest[i], eigvec_new, freq_eigval, no_of_atoms, hashtable_e_, 0, 1, DEBUG)
+    target_dirs = GULP_2.DUP_FILTER(All_dirs, dest[i], eigvec_array, freq_eigval, no_of_atoms, hashtable_e_, 0, 1, DEBUG)
     GULP_2.FINAL_PREP()
 else:
     GULP_2.FINAL_PREP()
+#########################################################
 
-print()
-print(f"{fg(15)} {bg(21)} Preparing data for trainig GAP - DONE {attr(0)}".center(columns))
+print(f"\n{fg(15)} {bg(21)} Preparing data for trainig GAP - DONE {attr(0)}".center(columns))
 
 
 
