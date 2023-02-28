@@ -11,8 +11,8 @@ version 1.4.2
 ✅ Dec 2022: v1.4.1 prep: symmetric (duplicate) configuration filter<br>
 ✅ Dec 2022: v1.4.2 prep: extremely short interatomic dist filter [degeneracyFilter branch]<br>
 
-✅ Jan 2022: v2.0.0 Highly modulised scripts (version 2)
-
+✅ Jan 2023: v2.0.0 Further modulised scripts (version 2)
+✅ Feb 2023: v2.0.1 Stochastic approach of atomic position displacement, (removed: poor degeneracy filter, energy filter) 
 
 * * *
 [linke to the image](https://github.com/DGKang234/ML_POT/blob/degeneracyFilter/parameter_search/htmls)
