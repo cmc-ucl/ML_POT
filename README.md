@@ -1,5 +1,5 @@
 ## GULP-GAP interface 
-version 1.4.2
+version 2.0.2
 
 ✅ Aug 2022: v1.0.0 preparing trainig data using GULP<br>
 ✅ Aug 2022: v1.1.0 GAP training<br>
