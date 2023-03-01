@@ -11,9 +11,9 @@ version 1.4.2
 ✅ Dec 2022: v1.4.1 prep: symmetric (duplicate) configuration filter<br>
 ✅ Dec 2022: v1.4.2 prep: extremely short interatomic dist filter [degeneracyFilter branch]<br>
 
-✅ Jan 2023: v2.0.0 Further modulised scripts (version 2)
+✅ Jan 2023: v2.0.0 Further modulised scripts (version 2)<br>
 ✅ Feb 2023: v2.0.1 Stochastic approach of atomic position displacement, (removed: poor degeneracy filter, energy filter)<br>
-(at the moment you have to manually turn-on/off the stochastic function)
+(at the moment you have to manually turn-on/off the stochastic function)<br>
 ✅ Mar 2023: v2.0.2 Automatically take average bond distance of cation-cation and anion-anion for RMSE calculation in the ±0.5 angstrom region and plot vertical line at the average bond distance
 * * *
 [linke to the image](https://github.com/DGKang234/ML_POT/blob/degeneracyFilter/parameter_search/htmls)
