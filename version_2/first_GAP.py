@@ -28,7 +28,7 @@ sparse = int(arg[6])
 # filter options ####
 dup_filter = arg[7]
 short_filter = arg[8]
-#energy_filter = arg[9]
+energy_filter = arg[9]
 #####################
 
 if len(arg) == 11:
@@ -40,8 +40,11 @@ else:
 HIGH = 10.0
 LOW = 1.6
 
-vib = vib.split()
-_vib = "-".join(vib)
+if vib == 'all':
+    _vib = 'all'
+else:
+    vib = vib.split()
+    _vib = "-".join(vib)
 
 wd_name = f"GAP_{_vib}_{step}_{rank_from}-{rank_to}_{cutoff}_{sparse}"
 
@@ -99,9 +102,11 @@ for f in files:
         #else:
         GULP_2 = GULP.GULP(step, vib, SP='set')
         first_gulp_xyz = os.path.join(dest, f"{dest}_eig.xyz")
-        mod_xyz = GULP_2.RANDOM_MOVE_XYZ(dest, first_gulp_xyz, no_of_atoms, IP_energy, DEBUG)
-        #mod_xyz = GULP_2.MODIFY_XYZ(dest, first_gulp_xyz, vib, eigvec_array, no_of_atoms, IP_energy, DEBUG)
-        #########################################################
+
+        # Random atom displacement (above) or vibrational mode (below) #####################################
+        #mod_xyz = GULP_2.RANDOM_MOVE_XYZ(dest, first_gulp_xyz, no_of_atoms, IP_energy, DEBUG)
+        mod_xyz = GULP_2.MODIFY_XYZ(dest, first_gulp_xyz, vib, eigvec_array, no_of_atoms, IP_energy, DEBUG)
+        ####################################################################################################
 
         core_write, shel_write, dest, no_of_atoms = GULP_2.CONVERT_XYZ_TO_GULP(0, mod_xyz, short_filter, DEBUG)
 
@@ -141,6 +146,7 @@ for f in files:
             mode = marker[0].split('/')[1]
             Lambda = marker[1]
             hashtable_e_.append([rank, mode, Lambda, IP_energy])
+
 atomic_e = sorted(atomic_e)
 
 # symmetric configuration filter ########################

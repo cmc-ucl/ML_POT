@@ -30,7 +30,9 @@ columns = shutil.get_terminal_size().columns
 print()
 print(f"{fg(15)} {bg(39)} Training GAP {attr(0)}".center(columns))
 GULP = GULP.GULP(step, vib, SP='set')
-GULP.GAP_2b_fit(wd_name, cutoff, sparse)
+#GULP.GAP_2b_fit(wd_name, cutoff, sparse)
+GULP.GAP_3b_fit(wd_name, cutoff, sparse)
+#GULP.GAP_3b_fit_only(wd_name, cutoff, sparse)
 print()
 print(f"{fg(15)} {bg(39)} Training finished {attr(0)}".center(columns))
 

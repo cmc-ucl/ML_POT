@@ -132,7 +132,7 @@ class GULP:
 
 
     def CONVERT_XYZ_TO_GULP(self, xyz_file, mod_xyz, short_filter, DEBUG):
-        """ """
+        """ convert xyz file to GULP intput file"""
         if mod_xyz == 0:
             with open(xyz_file, "r") as coord:
                 lines = coord.readlines()
@@ -166,6 +166,8 @@ class GULP:
 
 
     def SUB_CONVERT_XYZ_TO_GULP(self, lines, DEBUG="n"):
+        ''' subprocess of CONVERT_XYZ_TO_GULP
+        convert xyz file to {ID} {core/shel} {atomic coordination} '''
         anion_candi = ["N", "O", "F", "S", "Cl", "Se", "Br", "Te", "I", "Po", "At"]
         no_of_atoms = int(lines[0])
         lines = lines[2:]
@@ -206,7 +208,7 @@ class GULP:
         return (core_write, shel_write, coord_only, no_of_atoms)
 
     def WRITE_GULP(self, path, outXYZ, geometry, SP, DEBUG="n"):
-        """ """
+        """ write GULP intput file (single point calculation // optimisation) """
         if SP == "y":
             keywords = "single eigenvectors nodens"
             with open(path + "/gulp.gin", "w") as f:
@@ -250,7 +252,7 @@ class GULP:
         return None
 
     def RUN_GULP(self, loc_gulp_placed, DEBUG="n"):
-        """ """
+        """ run GULP in head node """
         subprocess.run(["/home/uccatka/software/gulp-5.1/Src/gulp", f"{loc_gulp_placed}/gulp"])
         loc_gulp_placed = os.path.join(loc_gulp_placed, "gulp.gout")
         if DEBUG == "debug":
@@ -261,7 +263,7 @@ class GULP:
         return loc_gulp_placed
 
     def OPEN_GULP_OUTPUT(self, loc_gulp_placed, DEBUG="n"):
-        """ Taking data from the gulp output file"""
+        """ take all GULP output file (unprocessed) """
         gulp_gout = os.path.join(loc_gulp_placed, "gulp.gout")
         with open(gulp_gout, "r") as f:
             lines = f.readlines()
@@ -272,6 +274,7 @@ class GULP:
         return lines
 
     def GREP_IP_ENERGY(self, lines, DEBUG="n"):
+        ''' get interatomic potential energy '''
         for numi, i in enumerate(lines):
             if "Interatomic potentials     =" in i:
                 IP_energy = i.split()[3]
@@ -282,6 +285,7 @@ class GULP:
         return IP_energy
 
     def GREP_TOTAL_ENERGY(self, lines, DEBUG="n"):
+        ''' get total energy of the system '''
         for numi, i in enumerate(lines):
             if ("Total lattice energy       =" in i) and ("eV" in i):
                 total_energy = i.split()[4]
@@ -292,7 +296,7 @@ class GULP:
         return total_energy
 
     def GREP_FREQ(self, lines, no_of_atoms, DEBUG="n"):
-        """ """
+        ''' get eigvenvalue and eigenvector '''
         freq_from = []
         freq_to = []
         freq_line_no = []
@@ -313,7 +317,7 @@ class GULP:
             elif "Vibrational properties (for cluster)" in i:
                 for detect in range(7):
                     if 1 < len(lines[numi-detect]) < 70:
-                        if "Vibrational" not in lines[numi-detect]: 
+                        if "Vibrational" not in lines[numi-detect]:
                             if len(lines[numi-detect]) > 10:
                                 #print(lines[numi-detect])
                                 #print(numi-detect)
@@ -339,8 +343,7 @@ class GULP:
                     arr_1.append(a)
                     arr_temp_2.append(a)
             arr_temp.append(arr_temp_2)
-        #for i in arr_1:
-        #    print(i)
+
         arr_temp_3 = []
         for i in arr_temp:
             arr_temp = np.stack(i, axis=1)
@@ -350,14 +353,6 @@ class GULP:
         arr_temp_3 = np.stack(arr_temp_3, axis=1)
         eigvec_array = arr_temp_3.reshape(-1, no_of_atoms, 3)
 
-        #arr_1 = np.stack(arr_1, axis=1)
-        #arr_2 = []
-        #split_marker = int(arr_1.shape[1] / len(freq))
-        #for numi, i in enumerate(arr_1):
-        #    row = np.array(np.split(i, split_marker)).reshape(-1, no_of_atoms, 3)
-        #    arr_2.append(row)
-        #arr_2 = np.stack(arr_2, axis=1)
-        #eigvec_array = arr_2.reshape(-1, no_of_atoms, 3)
         if DEBUG == "debug":
             print("\nDebugging mode on: GREP_FREQ:")
             print("\nFrequency eigenvectors:")
@@ -367,7 +362,7 @@ class GULP:
         return eigvec_array, freq_line_no, freq_eigval
 
     def GREP_ATOMIC_FORCE(self, no_of_atoms, dest, DEBUG="n"):
-        """ Get atomic forces from the 'drv' file """
+        ''' Get atomic forces from the 'drv' file '''
         marker = []
         forces = []
         #if (SP == "y" and os.path.isdir(dest)):
@@ -392,6 +387,7 @@ class GULP:
         else: pass
         return force_gulp
 
+
     def DUP_FILTER(self, All_dirs, dest, eigvec_array, freq_eigval, no_of_atoms, hashtable_e, degen, sym, DEBUG):
         if len(self.EIGVEC) != 1:
             if (degen == 1 and sym == 0):
@@ -403,7 +399,10 @@ class GULP:
                     for numj, j in enumerate(freq_eigval):
                         if i == j:
                             dup_freq_eigval_index.append(numj+1)
+                        else: pass
+
                     dup_indicies.append(dup_freq_eigval_index)  # group of degenerate
+
                 for i in dup_indicies:
                     i = [str(x) for x in i]
                     i = ' '.join(i[1:])
@@ -438,6 +437,8 @@ class GULP:
 
         target_dirs = []
         if (degen == 0 and sym == 1):
+            ''' remove duplicated structure based on the first
+            and the last step of structure energy'''
             lambda_energy = pd.DataFrame(hashtable_e, columns=["rank", "mode", "lambda", 'E'])
             lambda_energy = lambda_energy.set_index(["mode"])
             index_list = list(set(lambda_energy.index.values.tolist()))
@@ -459,6 +460,8 @@ class GULP:
                     if max_key == min_key:
                         if abs(float(ma) - float(mi)) < 1:
                             symmetric.append(f"{str(max_key)}")
+                        else: pass
+                    else: pass
 
             for i in symmetric:
                 with open("filtered_by_SYM.txt", 'a') as f:
@@ -483,24 +486,21 @@ class GULP:
 
 
     def DIST_CALC_DISCRETE(self, no_of_atoms, coord, ID):
-        all_dist = []
-        het_dist = []
-        homo_dist = []
+        ''' subprocess of RANDOM_MOVE_XYZ '''
+        all_dist, het_dist, homo_dist = [], [], []
+        all_dup_filter, het_dup_filter, homo_dup_filter = [], [], []
 
-        all_dup_filter = []
-        het_dup_filter = []
-        homo_dup_filter = []
-
-        all_dist = []
         for numi, i in enumerate(range(no_of_atoms)):
             for numj, j in enumerate(range(i+1, no_of_atoms)):
                 distance = np.linalg.norm(coord[i, :] - coord[j, :])
                 all_dist.append(distance)
+
                 # Interatomic distance between hetero species
                 if ID[i] != ID[j] and (str(i)+str(j) not in het_dup_filter):
                     distance = np.round(np.linalg.norm(coord[i, :] - coord[j, :]), 9)
                     het_dist.append(distance)
                     het_dup_filter.append(str(i)+str(j))
+
                 # Interatomic distance between homo species
                 if ID[i] == ID[j] and i != j and (str(j)+str(i) not in homo_dup_filter):
                     distance = np.round(np.linalg.norm(coord[i,:] - coord[j, :]), 9)
@@ -509,16 +509,19 @@ class GULP:
         return  all_dist, het_dist, homo_dist
 
     def RANDOM_MOVE_XYZ(self, path, gulp_xyz, no_of_atoms, energy, DEBUG):
-        """ Preparing xyz configs for training dataset:
-            random displacement on each atom of optimised xyz coord"""
+        ''' Preparing xyz configs for training dataset:
+            random displacement on each atom of optimised xyz coord '''
+        het_SHORT = 0.8
+        homo_SHORT = 1.2
         STRUC_ANAL = Structure_Analysis.structure_shape(gulp_xyz)
-        # randomly select one atom and randomly displace x, y, z coordinate ####################################
         mod_xyz = {}
         for i in range(1):
             wd = os.path.join(gulp_xyz.split('/')[-2], str(i))
             os.mkdir(wd)
             for j in tqdm(range(-1000, 1000+self.STEP, self.STEP), desc="Randomly displace atoms"):
                 if j != 0:
+                    '''
+                    # randomly select ONE atom and randomly displace x, y, z coordinate #################################### 
                     no_of_atoms, ID, coord_only = STRUC_ANAL.load_xyz()
                     com = STRUC_ANAL.CenterofMass(no_of_atoms, coord_only)
                     transformed = STRUC_ANAL.Transformation(no_of_atoms, coord_only, com)
@@ -529,18 +532,10 @@ class GULP:
                     rand_displace = np.add(rand_select_atom_coord, deg_displace, out=None)
                     new_coord = transformed
                     new_coord[rand_select_atom, :] = rand_displace
-                    #all_dist = self.DIST_CALC(new_coord, no_of_atoms)
                     all_dist, het_dist, homo_dist = self.DIST_CALC_DISCRETE(no_of_atoms, new_coord, ID) 
 
-                    het_SHORT = 0.9
-                    het_LONG = 2.5
-                    homo_SHORT = 2.0
-                    homo_LONG = 3.5
-                    #while any(item < DIST for item in all_dist):
-                    #while (any(item < het_SHORT or item > het_LONG for item in het_dist) or \
-                    #    any(item < homo_SHORT or item > homo_LONG for item in homo_dist)):
-                    while any(item < het_SHORT for item in het_dist): # or \
-                        #any(item < homo_SHORT for item in homo_dist)):
+                    while (any(item < het_SHORT for item in het_dist) or \
+                        any(item < homo_SHORT for item in homo_dist)):
                         no_of_atoms, ID, coord_only = STRUC_ANAL.load_xyz()
                         com = STRUC_ANAL.CenterofMass(no_of_atoms, coord_only)
                         transformed = STRUC_ANAL.Transformation(no_of_atoms, coord_only, com)
@@ -552,10 +547,7 @@ class GULP:
                         rand_displace = np.add(rand_select_atom_coord, deg_displace)
                         new_coord = transformed
                         new_coord[rand_select_atom, :] = rand_displace
-                        #all_dist = self.DIST_CALC(new_coord, no_of_atoms)
                         all_dist, het_dist, homo_dist = self.DIST_CALC_DISCRETE(no_of_atoms, new_coord, ID)
-                        #print(het_dist)
-                    #print("DONE\n")
                     stack = np.c_[ID, new_coord]
                     stack = stack.tolist()
                     stack.insert(0, [str(no_of_atoms)])
@@ -564,13 +556,37 @@ class GULP:
                     label = os.path.join(wd, f"mod_{str(j)}")
                     mod_xyz[label] = stack
                     #########################################################################################################
+                    '''
+                    # random displacement for ALL atoms #####################################################################
+                    no_of_atoms, ID, coord_only = STRUC_ANAL.load_xyz()
+                    com = STRUC_ANAL.CenterofMass(no_of_atoms, coord_only)
+                    transformed = STRUC_ANAL.Transformation(no_of_atoms, coord_only, com)
+                    deg_displace = np.random.uniform(-1, 1, (no_of_atoms, 3)) # generate random cart. coord. in between 0 and 1
+                    rand_displace = np.add(transformed, deg_displace, out=None)
+                    new_coord = rand_displace
+                    all_dist, het_dist, homo_dist = self.DIST_CALC_DISCRETE(no_of_atoms, new_coord, ID)
 
+                    het_SHORT = 0.8
+                    homo_SHORT = 1.2
+                    while (any(item < het_SHORT for item in het_dist) or \
+                        any(item < homo_SHORT for item in homo_dist)):
+                        no_of_atoms, ID, coord_only = STRUC_ANAL.load_xyz()
+                        com = STRUC_ANAL.CenterofMass(no_of_atoms, coord_only)
+                        transformed = STRUC_ANAL.Transformation(no_of_atoms, coord_only, com)
 
-                    # random displacement for all atoms #####################################################################
-                    #for i in range(no_of_atoms):
-                    #    deg_displace = np.random.rand(1,3)
-                    #    transformed[i, :] = np.add(transformed[i, :], deg_displace)
-                    #    new_coord = transformed
+                        no_of_row = np.shape(transformed)[0]
+                        deg_displace = np.random.uniform(-1, 1, (no_of_atoms,3)) # generate random cart. coord.
+                        rand_displace = np.add(transformed, deg_displace)
+                        new_coord = rand_displace
+                        all_dist, het_dist, homo_dist = self.DIST_CALC_DISCRETE(no_of_atoms, new_coord, ID)
+
+                    stack = np.c_[ID, new_coord]
+                    stack = stack.tolist()
+                    stack.insert(0, [str(no_of_atoms)])
+                    stack.insert(1, [energy])
+                    stack = ["\t\t".join(x) + "\n" for x in stack]
+                    label = os.path.join(wd, f"mod_{str(j)}")
+                    mod_xyz[label] = stack
                     #########################################################################################################
 
         new_coord = np.around(coord_only, 9)
@@ -583,17 +599,23 @@ class GULP:
         label = os.path.join(wd, "mod_0")
         mod_xyz[label] = stack
 
-        return mod_xyz 
+        return mod_xyz
 
 
     def MODIFY_XYZ(self, path, gulp_xyz, eigval, eigvec, no_of_atoms, energy, DEBUG):
-        """Preparing xyz configs for training dataset: (optimised xyz coord)+(eigvec*lambda)"""
+        ''' Preparing xyz configs for training dataset: (optimised xyz coord)+(eigvec*lambda) '''
         with open(gulp_xyz, "r") as f:
             lines = f.readlines()[2:]
             coord = [x.split() for x in lines]
             array = np.asarray(coord)
             coord = array[:, 1:].astype(float)
             ID = array[:, 0].astype(str)
+
+        if eigval == 'all':
+            eigval = list(range(7, len(eigvec)+1))
+            eigval = [str(x) for x in eigval]
+        else: pass
+        print(eigval)
 
         mod_xyz = {}
         for i in eigval:
@@ -769,7 +791,8 @@ default_sigma={0.008 0.04 0 0} \
 sparse_jitter=1.0e-8 \
 gap={distance_2b \
 cutoff=%s \
-covariance_type=ard_se delta=0.5 \
+covariance_type=ard_se \
+delta=0.5 \
 theta_uniform=1.0 \
 sparse_method=uniform \
 n_sparse=%s}" % (wd_name, wd_name, cutoff, sparse))
@@ -794,6 +817,57 @@ n_sparse=%s}" % (wd_name, wd_name, cutoff, sparse))
             % (wd_name, wd_name, wd_name)
         )
         return None
+
+    def GAP_3b_fit(self, wd_name, cutoff, sparse):
+        os.system(
+"/scratch/home/uccatka/virtualEnv/bin/gap_fit \
+energy_parameter_name=energy \
+force_parameter_name=forces \
+do_copy_at_file=F \
+sparse_separate_file=T \
+gp_file=%s/FIT/GAP.xml \
+at_file=%s/FIT/Training_set.xyz \
+default_sigma={0.008 0.04 0 0} \
+gap={distance_2b \
+cutoff=%s \
+covariance_type=ard_se \
+delta=0.5 \
+theta_uniform=1.0 \
+sparse_method=uniform \
+add_species=T \
+n_sparse=%s \
+: \
+angle_3b \
+cutoff=%s \
+covariance_type=ard_se \
+delta=0.5 \
+theta_fac=0.5 \
+add_species=T \
+n_sparse=%s \
+sparse_method=uniform}"
+% (wd_name, wd_name, cutoff, sparse, cutoff+0.5, sparse+int(round(sparse*0.2, 0))))
+        return None
+
+    def GAP_3b_fit_only(self, wd_name, cutoff, sparse):
+       os.system(
+"/scratch/home/uccatka/virtualEnv/bin/gap_fit \
+energy_parameter_name=energy \
+force_parameter_name=forces \
+do_copy_at_file=F \
+sparse_separate_file=T \
+gp_file=%s/FIT/GAP.xml \
+at_file=%s/FIT/Training_set.xyz \
+default_sigma={0.008 0.04 0 0} \
+gap={angle_3b \
+cutoff=%s \
+covariance_type=ard_se \
+delta=0.5 \
+theta_fac=0.5 \
+add_species=T \
+n_sparse=%s \
+sparse_method=uniform}"
+% (wd_name, wd_name, cutoff+0.5, sparse+int(round(sparse*0.2, 0))))
+       return None
 
     def VIS_ESSENTIAL(self, wd_name):
         cwd = os.getcwd()
@@ -870,60 +944,76 @@ n_sparse=%s}" % (wd_name, wd_name, cutoff, sparse))
         del dff, dfff, df_AlF_scaled
         return df_dimer, x_axis
 
+
     def DIST_BIN_CALC(self, wd_path, FIT_path, Train_xyz_path, binwidth, sig2):
         with open(Train_xyz_path, 'r') as f:
             full_lines = f.readlines()
         no_of_atoms = int(full_lines[0])
-        coord_force_lines = [x for x in full_lines if len(x) > 10 and "Properties" not in x][:-2]
+        #coord_force_lines = [x for x in full_lines if len(x) > 10 and "Properties" not in x][:-2]
+        #cluster_counter = len([x for x in full_lines if len(x) < 5])
 
-        coord = []
-        ID = []
-        for i in coord_force_lines:
-            line = [float(x) for x in i.split()[1:]][:3]
-            coord += line
-            ID.append(i.split(" ")[0])
-
-        From = []
-        To = []
+        check_continue, cluster_set, clusters, ID, ID_set = [], [], [], [], []
         for numi, i in enumerate(full_lines):
-            if len(i) <= 10:
-                From.append(numi)
-                To.append(numi)
+            if len(i) > 10 and "Properties" not in i:
+                check_continue.append(numi)
+                if numi - check_continue[-1] == 0:
+                    clusters.append(i.split()[1:4]) # atomic coordination
+                    ID.append(i.split()[0])         # atomic species
+                else: pass
 
-        To.append(len(full_lines))
-        To = To[1:-2]
-        From = From[:-2]
-        block = {From[i]: To[i] for i in range(len(From))}
-        del From, To
+            else:
+                if len(clusters) != 0:
+                    clusters = np.array(clusters).astype(float)
+                    cluster_set.append(clusters) # make nested list
+                    ID_set.append(ID)            # same here
+                else: pass
+                ID, clusters = [], []
 
-        keys_list = list(block.keys())
-        random.shuffle(keys_list)
-        nkeys = int(1.0 * len(keys_list))
-        keys = keys_list[:nkeys]
+        cluster_set = np.array(cluster_set[:-1])
 
-        train = {k: block[k] for k in keys}
-        del keys
+        cat_cat_dist, an_an_dist, cat_an_dist = [], [], []
+        for i in range(len(cluster_set)):
+            (nbins, npairs_all, npairs_cat_cat, npairs_an_an, npairs_cat_an, all_dist, \
+            c_c_dist, a_a_dist, c_a_dist) = self.RDF(no_of_atoms, cluster_set[i], ID_set[i], binwidth)
 
-        coord = np.asarray(coord)
-        coord = np.reshape(coord, (len(train.keys()), no_of_atoms, 3))
+            cat_cat_dist += c_c_dist # concatenate the list
+            an_an_dist += a_a_dist
+            cat_an_dist += c_a_dist
+        return cat_an_dist, cat_cat_dist, an_an_dist
 
-        ID = np.asarray(ID)
-        ID = np.reshape(ID, (len(train.keys()), no_of_atoms))
+    def GET_GM_MEAN_BOND_DIST(self, wd_name):
+        LM_rank = [os.path.join(wd_name, x) for x in os.listdir(wd_name) if 'FIT' not in x if os.path.isdir(os.path.join(wd_name, x))] #if 'FIT' not in x if os.path.isdir(x)]
+        if len(LM_rank) != 0:
+            GM_dir_path = sorted(LM_rank, key=lambda x: int(x.split('/')[1]))[0]
+            GM_xyz_path = os.path.join(GM_dir_path, '001_eig.xyz')
+            with open(GM_xyz_path, 'r') as f:
+                contents = f.readlines()[2:]
+            contents = np.array([x.split() for x in contents])
+            ID = contents[:, 0]
+            coord = contents[:, 1:].astype(float)
+            out = self.RDF(np.shape(coord)[0], coord, ID, None)
+            c_c_dist = out[-3]
+            a_a_dist = out[-2]
+            c_a_dist = out[-1]
 
-        all_het_dist = []
-        all_homo_dist = []
+            c_c_dist = [x for x in c_c_dist if x < 3.2]
+            a_a_dist = [x for x in a_a_dist if x < 3.2]
+            c_a_dist = [x for x in c_a_dist if x < 2.1]
 
-        for numi, i in enumerate(coord):
-            (nbins, npairs_all, npairs_het, npairs_homo, all_dist, het_dist, homo_dist, opdata
-            ) = self.RDF(no_of_atoms, i, ID[numi], binwidth)
-            all_het_dist += het_dist
-            all_homo_dist += homo_dist
-        return all_het_dist, all_homo_dist
+            mean_c_c = np.average(c_c_dist)
+            mean_a_a = np.average(a_a_dist)
+            mean_c_a = np.average(c_a_dist)
 
-    def PLOT_DIMER(self, df, wd_name, FIT_path, x_axis, all_het_dist, all_homo_dist):
+            return mean_c_c, mean_a_a, mean_c_a
+        else:
+            return None, None, None
+
+
+    def PLOT_DIMER(self, df, wd_name, FIT_path, x_axis, cat_an_dist, cat_cat_dist, an_an_dist):
+        mean_c_c, mean_a_a, mean_c_a = self.GET_GM_MEAN_BOND_DIST(wd_name)
         # E vs r
         fig = go.FigureWidget()
-        # Generated Born-Mayer potential
+        # Fitted Born-Mayer potential for AlF3
         def BM(x):
             return 3760 * np.exp(-x / 0.222)
 
@@ -1032,70 +1122,87 @@ n_sparse=%s}" % (wd_name, wd_name, cutoff, sparse))
         )
 
         ## MSE (± 0.5 from the equilibrium interatomic distnace)
-        from_point = list(df["r"]).index([x for x in df["r"] if 1.57705 - 0.5 < x][0])
-        to_point = list(df["r"]).index([x for x in df["r"] if x < 1.57705 + 0.5][-1])
-        MSE_catan = round(mean_squared_error(
-                df["Al-F(GAP)"][from_point:to_point],
-                BM(x_axis)[from_point:to_point],
-                squared=False), 4)
+        if mean_c_a != None:
+            from_point = list(df["r"]).index([x for x in df["r"] if mean_c_a - 0.5 < x][0])
+            to_point = list(df["r"]).index([x for x in df["r"] if x < mean_c_a + 0.5][-1])
+            MSE_catan = round(mean_squared_error(
+                    df["Al-F(GAP)"][from_point:to_point],
+                    BM(x_axis)[from_point:to_point],
+                    squared=False), 4)
+        else: pass
 
-        from_point_a = list(df["r"]).index([x for x in df["r"] if 2.73154 - 0.5 < x < 2.73154 + 0.5][0])
+        if mean_a_a != None:
+            from_point_a = list(df["r"]).index([x for x in df["r"] if mean_a_a - 0.5 < x < mean_a_a + 0.5][0])
+            to_point_a = list(df["r"]).index([x for x in df["r"] if x < mean_a_a + 0.5][-1])
+            try:
+                MSE_an = round(
+                    mean_squared_error(
+                        df["F-F(GAP)"][from_point_a:to_point_a],
+                        buck4(x_axis)[from_point_a:to_point_a],
+                        squared=False),  4)
+            except ValueError:
+                MSE_an = "F-F is removed"
+                pass
+        if (mean_c_a and mean_a_a) != None:
+            with open(f"{wd_name}/MSE.txt", "w") as f:
+                f.write(str(MSE_catan))
+                f.write("\n")
+                f.write(str(MSE_an))
+            columns = shutil.get_terminal_size().columns
+            print("**************************".center(columns))
+            print(f"RMSE(cat-an): {MSE_catan}".center(columns))
+            print(f"RMSE(an-an): {MSE_an}".center(columns))
+            print("**************************".center(columns))
+            print("\n")
 
-        to_point_a = list(df["r"]).index([x for x in df["r"] if x < 2.73154 + 0.5][-1])
-        try: 
-            MSE_an = round(
-                mean_squared_error(
-                    df["F-F(GAP)"][from_point_a:to_point_a],
-                    buck4(x_axis)[from_point_a:to_point_a],
-                    squared=False),  4)
-        except ValueError:
-            MSE_an = "F-F is removed" 
-            pass
-        with open(f"{wd_name}/MSE.txt", "w") as f:
-            f.write(str(MSE_catan))
-            f.write("\n")
-            f.write(str(MSE_an))
-        columns = shutil.get_terminal_size().columns
-        print("**************************".center(columns))
-        print(f"RMSE(cat-an): {MSE_catan}".center(columns))
-        print(f"RMSE(an-an): {MSE_an}".center(columns))
-        print("**************************".center(columns))
-        print("\n")
         # Histogram above the potential figure (uppger panel)
-
         trace8 = fig.add_histogram(
-            x=all_het_dist,
+            x=cat_an_dist, #all_het_dist,
             xbins=dict(start=0, end=6, size=0.005),
             marker_color=BM_color,
-            name="Number of hetero species interatomic distance",
+            name="cat-an dist",
             yaxis="y2")
 
         trace9 = fig.add_histogram(
-            x=all_homo_dist,
+            x=cat_cat_dist, #all_homo_dist,
+            xbins=dict(start=0, end=6, size=0.005),
+            marker_color="blue",
+            name="cat-cat dist",
+            yaxis="y2")
+
+        trace10 = fig.add_histogram(
+            x=an_an_dist,
             xbins=dict(start=0, end=6, size=0.005),
             marker_color="firebrick",
-            name="Number of homo species interatomic distance",
+            name="an-an dist",
             yaxis="y2")
 
         fig.layout = dict(
             xaxis=dict(
                 domain=[0, 0.8],
+                range=[0,6.0],
                 showgrid=False,
                 zeroline=False,
                 title="Interatomic distance / Å"),
 
             yaxis=dict(
                 domain=[0, 0.8],
-                range=[-20, 50],
+                range=[-100, 200],
                 showgrid=False,
                 zeroline=True,
                 title="Potential energy / eV"),
 
-            margin=dict(l=80, r=80, t=80, b=150),
-            width=1800,
+            legend=dict(
+                x=0.85,
+                y=1.0,
+                ),
+
+            margin=dict(l=80, r=80, t=80, b=80),
+            width=1400,
             height=800,
             hovermode="closest",
             bargap=0.8,
+
             xaxis2=dict(
                 domain=[0.85, 1],
                 showgrid=False,
@@ -1106,78 +1213,125 @@ n_sparse=%s}" % (wd_name, wd_name, cutoff, sparse))
 
         # Transparent vertical region where from the shortest to longest
         # interatomic distance covered by the training structure
-        fig.add_vrect(
-            x0=min(all_het_dist),
-            x1=max(all_het_dist),
-            fillcolor=BM_color,
-            opacity=0.4,
-            layer="below",
-            line_width=1)
+        if len(cat_an_dist) != 0:
+            fig.add_vrect(
+                x0=min(cat_an_dist),
+                x1=max(cat_an_dist),
+                fillcolor=BM_color,
+                opacity=0.4,
+                layer="below",
+                line_width=1)
+        else: pass
 
-        fig.add_vrect(
-            x0=min(all_homo_dist),
-            x1=max(all_homo_dist),
-            fillcolor="firebrick",
-            opacity=0.4,
-            layer="below",
-            line_width=1)
+        if len(cat_cat_dist) != 0:
+            fig.add_vrect(
+                x0=min(cat_cat_dist),
+                x1=max(cat_cat_dist),
+                fillcolor="blue",
+                opacity=0.4,
+                layer="below",
+                line_width=1)
+        else: pass
+
+        if len(an_an_dist) != 0:
+            fig.add_vrect(
+                x0=min(an_an_dist),
+                x1=max(an_an_dist),
+                fillcolor="firebrick",
+                opacity=0.4,
+                layer="below",
+                line_width=1)
+        else: pass
 
         # Vertial-dash line to show equilibrium interatomic distances for Al-F, F-F
-        fig.add_vline(x=1.57705, line_width=2, line_dash="dash", line_color=BM_color)
-        fig.add_vline(x=2.73154, line_width=2, line_dash="dash", line_color="firebrick")
-        fig.add_annotation(
-            # size=15,
-            x=0.6,
-            y=0.7,
-            text=f"RMSE(Al-F) = {MSE_catan} <br> RMSE(F-F) = {MSE_an}",
-            xanchor="left",
-            xref="paper",
-            yref="paper")
+        if mean_c_a != None:
+            fig.add_vline(x=mean_c_a, line_width=2, line_dash="dash", line_color=BM_color)
+        else: pass
+
+        if mean_a_a != None:
+            fig.add_vline(x=mean_a_a, line_width=2, line_dash="dash", line_color="firebrick")
+        else: pass
+
+        if (mean_c_a and mean_a_a) != None:
+            fig.add_annotation(
+                # size=15,
+                x=0.6,
+                y=0.8,
+                text=f"RMSE(Al-F) = {MSE_catan} <br> RMSE(F-F) = {MSE_an}",
+                xanchor="left",
+                showarrow=False,
+                xref="paper",
+                yref="paper")
         fig.write_html(f"./{wd_name}/plot.html")
 
+
     def RDF(self, no_of_atoms, coord, ID, binwidth):
-        """Binning the interatomic distnace"""
+        '''Binning the interatomic distnace'''
         # Calculate the interatomic disntaces
         all_dist = []
-        het_dist = []
-        homo_dist = []
+        c_a_dist = []
+        c_c_dist = []
+        a_a_dist = []
         npairs_all = 0
-        npairs_het = 0
-        npairs_homo = 0
+        npairs_cat_an = 0
+        npairs_cat_cat = 0
+        npairs_an_an = 0
 
         all_dup_filter = []
-        het_dup_filter = []
-        homo_dup_filter = []
-
+        cat_an_dup_filter = []
+        cat_cat_dup_filter = []
+        an_an_dup_filter = []
         all_dist = []
-        for numi, i in enumerate(range(no_of_atoms)):
-            for numj, j in enumerate(range(i+1, no_of_atoms)):
+        for i in range(len(ID)):
+            for j in range(i+1, len(ID)):
                 npairs_all += 1
                 distance = np.linalg.norm(coord[i, :] - coord[j, :])
                 all_dist.append(distance)
-                # Interatomic distance between hetero species
-                if ID[i] != ID[j] and (str(i)+str(j) not in het_dup_filter):
-                    npairs_het += 1
+
+                # Interatomic distance between hetero species (cat-an)
+                if ID[i] != ID[j] and (str(i)+str(j) not in cat_an_dup_filter):
+                    npairs_cat_an += 1
                     distance = np.round(np.linalg.norm(coord[i, :] - coord[j, :]), 9)
-                    het_dist.append(distance)
-                    het_dup_filter.append(str(i)+str(j))
+                    c_a_dist.append(distance)
+                    cat_an_dup_filter.append(str(i)+str(j))
+
                 # Interatomic distance between homo species
-                if ID[i] == ID[j] and i != j and (str(j)+str(i) not in homo_dup_filter):
-                    npairs_homo += 1
-                    distance = np.round(np.linalg.norm(coord[i,:] - coord[j, :]), 9)
-                    homo_dist.append(distance)
-                    homo_dup_filter.append(str(i)+str(j))
+                with open('/home/uccatka/auto/for_GAP/lib/anions.lib', 'r') as f:
+                    anions_list = f.readlines()
+                anions_list = [x.strip() for x in anions_list]
+                if ID[i] in anions_list:
+                    if ID[i] == ID[j] and i != j and (str(j)+str(i) not in an_an_dup_filter):
+                        npairs_an_an += 1
+                        distance = np.round(np.linalg.norm(coord[i,:] - coord[j, :]), 9)
+                        a_a_dist.append(distance)
+                        an_an_dup_filter.append(str(i)+str(j))
 
-        # Prepare the bin
-        tmp = np.ceil(max(all_dist)) + 1
-        tmp = tmp / binwidth
-        nbins = int(round(tmp, 0) + 1)
+                else:
+                    if ID[i] == ID[j] and i != j and (str(j) + str(i) not in cat_cat_dup_filter):
+                        npairs_cat_cat += 1
+                        distance = np.round(np.linalg.norm(coord[i,:] - coord[j, :]), 9)
+                        c_c_dist.append(distance)
+                        cat_cat_dup_filter.append(str(i) + str(j))
+        if binwidth != None:
+            # Prepare the bin
+            tmp = np.ceil(max(all_dist)) + 1
+            tmp = tmp / binwidth
+            nbins = int(round(tmp, 0) + 1)
 
-        num = 0.0
-        opdata = [0.0]
-        for i in range(nbins - 1):
-            num += binwidth
-            opdata.append(round(num, 2))
-        return (nbins, npairs_all, npairs_het, npairs_homo, all_dist, het_dist, homo_dist, opdata)
+            #num = 0.0
+            #opdata = [0.0]
+            #for i in range(nbins - 1):
+            #    num += binwidth
+            #    opdata.append(round(num, 2))
+            #print(a_a_dist)
+            #print()
+            #print(c_a_dist)
+            #print()
+            #print(c_c_dist)
+            return (nbins, npairs_all, npairs_cat_cat, npairs_an_an, \
+            npairs_cat_an, all_dist, c_c_dist, a_a_dist, c_a_dist)
+        else:
+            return (npairs_all, npairs_cat_cat, npairs_an_an, \
+            npairs_cat_an, all_dist, c_c_dist, a_a_dist, c_a_dist)
 
 
